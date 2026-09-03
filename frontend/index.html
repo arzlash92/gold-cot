@@ -1,0 +1,1421 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GoldCOT Signal — Dashboard</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans+Thai:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+tailwind.config = { theme: { extend: {
+  colors: {
+    paper:'#EEF1FB', card:'#FFFFFF', ink:'#141C26', muted:'#5C6B7A', rule:'#D7DEEE',
+    mm:'#0FB8B0', swap:'#9333EA', prod:'#F59E0B', other:'#2F7DE0', bear:'#E0294B',
+    long:'#17B26A', accent:'#22D3EE', up:'#0FB8B0',
+  },
+  fontFamily: {
+    sans: ['"IBM Plex Sans Thai"','system-ui','sans-serif'],
+    mono: ['"IBM Plex Mono"','ui-monospace','monospace'],
+  },
+}}};
+</script>
+<style>
+  body { font-feature-settings:"tnum" 1; }
+  .num { font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; }
+  .eyebrow { letter-spacing:.14em; text-transform:uppercase; font-size:.625rem; }
+  .week-cell:hover { outline:1.5px solid #141C26; outline-offset:-1px; }
+  .navlink.active { color:#F4F6F9; background:rgba(255,255,255,.06); }
+  .navlink.active::before { content:''; position:absolute; left:-12px; top:8px; bottom:8px;
+    width:3px; background:#22D3EE; border-radius:2px; }
+  .ring-track { background:conic-gradient(var(--ring-color) calc(var(--pct)*1%), #DDE3EA 0); }
+  #sidebar { transition:transform .25s ease; }
+  @media (prefers-reduced-motion:reduce){ *{transition:none!important} }
+  :focus-visible { outline:2px solid #22D3EE; outline-offset:2px; }
+  ::-webkit-scrollbar { width:10px; height:10px; }
+  ::-webkit-scrollbar-thumb { background:#C7D0DB; border-radius:6px; }
+</style>
+</head>
+
+<body class="h-screen overflow-hidden bg-paper text-ink font-sans antialiased">
+<div class="flex h-full">
+
+  <div id="sidebarBackdrop" class="fixed inset-0 z-30 hidden bg-ink/50 lg:hidden"></div>
+
+  <!-- ═════════ SIDEBAR ═════════ -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 flex w-64 -translate-x-full flex-col bg-ink text-white lg:static lg:translate-x-0 lg:shrink-0">
+    <div class="flex items-center gap-2.5 border-b border-white/10 px-5 py-5">
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+        <circle cx="13" cy="13" r="11" stroke="#22D3EE" stroke-width="2"/>
+        <path d="M13 6.5v13M8 13h10" stroke="#22D3EE" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      <div>
+        <p class="text-sm font-semibold leading-none">GoldCOT</p>
+        <p class="eyebrow mt-1 text-white/45">Signal Terminal</p>
+      </div>
+      <button id="sidebarClose" aria-label="ปิดเมนู" class="ml-auto rounded p-1 text-white/60 hover:text-white lg:hidden">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <nav class="flex-1 space-y-0.5 overflow-y-auto px-3 py-4">
+      <a href="#overview" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="1.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="8.5" y="1.5" width="6" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/><rect x="1.5" y="9.5" width="6" height="5" rx="1" stroke="currentColor" stroke-width="1.4"/></svg>
+        ภาพรวมสัญญาณ
+      </a>
+      <a href="#price" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 13l3.5-5 3 3L14 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        ราคาทองคำ 10 ปี
+      </a>
+      <a href="#forecast" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12l3-3 2.5 2L12 6l2 2" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2.2 1.6"/><circle cx="14" cy="8" r="1.3" fill="currentColor"/></svg>
+        คาดการณ์ราคา
+      </a>
+      <a href="#oi" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 12V7M8 12V4M13 12V9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        Open Interest
+      </a>
+      <a href="#groups" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5" r="2.2" stroke="currentColor" stroke-width="1.3"/><circle cx="11" cy="9.5" r="2.2" stroke="currentColor" stroke-width="1.3"/><path d="M2 14c.6-1.8 2-2.6 3.5-2.6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        ผู้ซื้อขาย 4 กลุ่ม
+      </a>
+      <a href="#gold-option" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5v13M11.5 4.2c0-1.2-1.4-2-3.5-2s-3.5.9-3.5 2c0 3 7 1.5 7 4.5 0 1.1-1.6 2-3.5 2s-3.5-.9-3.5-2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+        Gold Option
+      </a>
+      <a href="#history" class="navlink relative flex items-center gap-3 rounded-md px-3 py-2 text-sm text-white/70 hover:bg-white/5 hover:text-white">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M1.5 6h13" stroke="currentColor" stroke-width="1.4"/></svg>
+        ประวัติสัญญาณ
+      </a>
+    </nav>
+
+    <div class="border-t border-white/10 px-4 py-4">
+      <div class="flex items-center gap-2 text-xs text-white/60">
+        <span id="connDot" class="h-1.5 w-1.5 rounded-full bg-white/30"></span>
+        <span id="connText">ยังไม่ทดสอบการเชื่อมต่อ</span>
+      </div>
+      <button id="testConnBtn" class="mt-2 w-full rounded-md border border-white/15 px-2.5 py-1.5 text-xs text-white/70 hover:border-white/30 hover:text-white">
+        ทดสอบเชื่อมต่อ API
+      </button>
+      <p class="mt-3 text-[10px] leading-relaxed text-white/35">
+        แก้ <code class="text-white/55">API_BASE</code> ที่ต้น script เพื่อเปลี่ยนปลายทาง
+      </p>
+    </div>
+  </aside>
+
+  <!-- ═════════ MAIN ═════════ -->
+  <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
+    <header class="sticky top-0 z-20 flex items-center gap-3 border-b border-rule bg-paper/95 px-4 py-3 backdrop-blur md:px-8">
+      <button id="sidebarOpen" aria-label="เปิดเมนู" class="rounded-md p-1.5 ring-1 ring-rule lg:hidden">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2.5 5h13M2.5 9h13M2.5 13h13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      </button>
+      <div class="min-w-0">
+        <p class="truncate text-sm font-semibold md:text-base">แดชบอร์ดสัญญาณทองคำ</p>
+        <p class="truncate text-xs text-muted">GOLD — COMMODITY EXCHANGE INC. · Disaggregated COT</p>
+      </div>
+      <div class="ml-auto text-right text-xs leading-tight">
+        <p class="text-muted">ข้อมูล ณ <span id="asOf" class="num text-ink">—</span></p>
+        <p class="text-muted">เผยแพร่ <span id="pubOn" class="num text-ink">—</span></p>
+      </div>
+    </header>
+
+    <main class="flex-1 overflow-y-auto px-4 py-5 md:px-8">
+      <div id="dataMode" class="mb-4 rounded-lg px-3 py-2 text-xs"></div>
+
+      <!-- ══ OVERVIEW ══ -->
+      <section id="overview" class="scroll-mt-20">
+        <div class="grid grid-cols-2 gap-3 xl:grid-cols-5">
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+            <p class="eyebrow text-muted">สัญญาณ</p>
+            <p id="signalCode" class="num mt-2 text-3xl font-bold leading-none">—</p>
+            <p id="signalName" class="mt-1.5 text-xs font-medium">กำลังโหลด</p>
+          </div>
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+            <p class="eyebrow text-muted">ทิศทาง</p>
+            <p id="dirVal" class="mt-2 text-xl font-bold leading-none">—</p>
+            <p id="dirName" class="mt-1.5 text-xs text-muted">—</p>
+          </div>
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+            <p class="eyebrow text-muted">คะแนนทิศทาง</p>
+            <p id="biasVal" class="num mt-2 text-3xl font-bold leading-none">0</p>
+            <div class="mt-2.5">
+              <div class="relative h-1.5 rounded-full bg-rule">
+                <div class="absolute inset-y-0 left-1/2 w-px bg-muted/50"></div>
+                <div id="biasMarker" class="absolute -top-[3px] h-3 w-1 rounded-sm bg-ink" style="left:50%"></div>
+              </div>
+              <div class="mt-1 flex justify-between text-[10px] text-muted"><span>−100</span><span>+100</span></div>
+            </div>
+          </div>
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+            <p class="eyebrow text-muted">ความเชื่อมั่น</p>
+            <div class="mt-2 flex items-center gap-2.5">
+              <div id="confRing" class="ring-track relative h-12 w-12 shrink-0 rounded-full" style="--pct:0;--ring-color:#0FB8B0;">
+                <div class="absolute inset-1 flex items-center justify-center rounded-full bg-card">
+                  <span id="confVal" class="num text-xs font-bold">0</span>
+                </div>
+              </div>
+              <p id="confLabel" class="text-xs text-muted">—</p>
+            </div>
+          </div>
+          <div class="col-span-2 rounded-xl bg-card p-4 ring-1 ring-rule xl:col-span-1">
+            <p class="eyebrow text-muted">ราคาทองคำล่าสุด</p>
+            <p id="priceVal" class="num mt-2 text-3xl font-bold leading-none">—</p>
+            <p id="priceValDate" class="num mt-1 text-[11px] text-muted">—</p>
+            <p id="priceStale" class="mt-1 hidden text-[11px] font-medium"></p>
+            <div class="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+              <span id="priceZoneBadge" class="rounded px-1.5 py-0.5 font-medium">—</span>
+              <span id="priceStateTxt" class="text-muted">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ GOLD OPTION (ย้ายมาไว้เหนือการ์ด Open Interest) ══ -->
+        <section id="gold-option" class="mt-3 scroll-mt-20">
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+            <div>
+              <h2 class="text-sm font-semibold">ทิศทางราคาจาก Gold Option</h2>
+              <p class="text-xs text-muted">สรุปจาก Gold Options Analysis Template — Put/Call ratio รายซีรีส์และ strike สำคัญ</p>
+            </div>
+
+            <div id="optionEmpty" class="mt-4 hidden rounded-lg bg-paper p-4 text-xs leading-relaxed text-muted">
+              ยังไม่มีข้อมูล Gold Option ในระบบ — Barchart ไม่มี API สาธารณะฟรี (แพ็กเกจเริ่มต้น
+              500 ดอลลาร์/เดือน) จึงต้องนำเข้าด้วยมือจากรายงานวิเคราะห์:
+              <ol class="mt-2 list-decimal space-y-1 pl-4">
+                <li>เตรียมไฟล์ "Gold Options Analysis Template" (.xlsx) — มีชีต Executive Summary,
+                  Series Breakdown, Strike Deep-Dive</li>
+                <li>รัน <code class="num rounded bg-card px-1 py-0.5">python import_option_analysis.py path\to\file.xlsx</code>
+                  ในโฟลเดอร์ backend</li>
+                <li>รีเฟรชหน้านี้</li>
+              </ol>
+            </div>
+
+            <div id="optionContent" class="mt-4 hidden">
+              <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div class="col-span-2 rounded-lg bg-paper px-3 py-2.5 sm:col-span-1">
+                  <p class="text-[10px] text-muted">Macro Sentiment</p>
+                  <p id="optMacroSentiment" class="mt-0.5 text-base font-bold leading-tight">—</p>
+                </div>
+                <div class="rounded-lg bg-paper px-3 py-2.5">
+                  <p class="text-[10px] text-muted">Call OI รวม</p>
+                  <p id="optCallOi" class="num mt-0.5 text-lg font-semibold">—</p>
+                </div>
+                <div class="rounded-lg bg-paper px-3 py-2.5">
+                  <p class="text-[10px] text-muted">Put OI รวม</p>
+                  <p id="optPutOi" class="num mt-0.5 text-lg font-semibold">—</p>
+                </div>
+                <div class="rounded-lg bg-paper px-3 py-2.5">
+                  <p class="text-[10px] text-muted">Overall P/C Ratio</p>
+                  <p id="optRatio" class="num mt-0.5 text-lg font-semibold">—</p>
+                </div>
+              </div>
+              <p id="optDate" class="mt-2 text-[11px] text-muted">—</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ══ OPEN INTEREST (ย้ายมาไว้เหนือแถบสถานะ 52 สัปดาห์) ══ -->
+        <section id="oi" class="mt-3 scroll-mt-20">
+          <div class="grid grid-cols-1 gap-3 xl:grid-cols-3">
+            <div class="flex flex-col rounded-xl bg-card p-4 ring-1 ring-rule xl:col-span-2">
+              <div class="flex flex-wrap items-baseline justify-between gap-2">
+                <div>
+                  <h2 class="text-sm font-semibold">Open Interest สถานะคงค้างรวม</h2>
+                  <p class="text-xs text-muted">เส้น = ยอดคงค้าง · แท่ง = การเปลี่ยนแปลงจากสัปดาห์ก่อน</p>
+                </div>
+                <div class="flex gap-1" role="group" aria-label="เลือกช่วงเวลา OI">
+                  <button data-w="52"  class="oiBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">52 สัปดาห์</button>
+                  <button data-w="156" class="oiBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">3 ปี</button>
+                  <button data-w="520" class="oiBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">10 ปี</button>
+                </div>
+              </div>
+              <div class="relative mt-3 h-72 flex-1"><canvas id="oiChart"></canvas></div>
+            </div>
+            <div class="flex flex-col rounded-xl bg-card p-4 ring-1 ring-rule">
+              <h2 class="text-sm font-semibold">สรุป Open Interest</h2>
+              <p class="mt-1 text-[10px] text-muted">แนวโน้ม 52 สัปดาห์</p>
+              <div class="relative mt-1.5 h-24">
+                <canvas id="oiMiniChart"></canvas>
+              </div>
+              <div id="oiStats" class="mt-3 flex flex-1 flex-col justify-between space-y-3"></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-3">
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule xl:col-span-2">
+            <div class="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 class="text-sm font-semibold">แถบสถานะ 52 สัปดาห์</h2>
+              <p class="text-xs text-muted">บน <span class="font-medium text-mm">Managed&nbsp;Money</span> ·
+                ล่าง <span class="font-medium text-swap">Swap&nbsp;Dealer</span></p>
+            </div>
+            <div id="strip" class="mt-3 flex h-20 items-stretch gap-px" role="img" aria-label="แถบสถานะรายสัปดาห์ 52 สัปดาห์ล่าสุด"></div>
+            <div class="mt-2 flex justify-between text-[10px] text-muted num"><span id="stripStart">—</span><span id="stripEnd">—</span></div>
+            <p id="stripTip" class="mt-2 h-4 text-xs text-muted">ชี้ที่ช่องใดก็ได้เพื่อดูตัวเลขของสัปดาห์นั้น</p>
+          </div>
+          <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+            <h2 class="text-sm font-semibold">เหตุผลของสัญญาณ</h2>
+            <p id="signalCtx" class="num mt-1 text-xs text-muted">—</p>
+            <ul id="rationale" class="mt-3 space-y-2 text-sm"></ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ PRICE 10Y ══ -->
+      <section id="price" class="mt-3 scroll-mt-20">
+        <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold">ราคาทองคำย้อนหลัง</h2>
+              <p class="text-xs text-muted">ข้อมูลรายวันจาก Yahoo Finance (สัญลักษณ์ GC=F) ผ่าน backend ·
+                <a href="https://finance.yahoo.com/quote/GC=F/" target="_blank" rel="noopener"
+                   class="underline decoration-dotted hover:text-ink">เทียบกับ Yahoo</a></p>
+            </div>
+            <div class="flex gap-1" role="group" aria-label="เลือกช่วงเวลาราคา">
+              <button data-y="1"  class="pxBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">1 ปี</button>
+              <button data-y="3"  class="pxBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">3 ปี</button>
+              <button data-y="5"  class="pxBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">5 ปี</button>
+              <button data-y="10" class="pxBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">10 ปี</button>
+            </div>
+          </div>
+          <div class="relative mt-3">
+            <canvas id="priceChart" height="150"></canvas>
+            <div id="priceEmpty" class="absolute inset-0 hidden items-center justify-center rounded-lg bg-paper/70 text-center text-xs text-muted"></div>
+          </div>
+          <div id="priceStats" class="mt-3 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4"></div>
+          <p class="mt-3 text-[11px] text-muted">
+            ถ้าราคาคลาดเคลื่อนจากหน้า Yahoo ให้รัน <code class="num rounded bg-paper px-1 py-0.5">python run_ingest.py --resync</code>
+            ในโฟลเดอร์ backend เพื่อล้างข้อมูลราคาเก่าแล้วดึงใหม่ทั้งหมด
+          </p>
+        </div>
+      </section>
+
+      <!-- ══ FORECAST (ARIMAX) ══ -->
+      <section id="forecast" class="mt-3 scroll-mt-20">
+        <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold">คาดการณ์ราคา (ARIMAX)</h2>
+              <p class="text-xs text-muted">พยากรณ์ล่วงหน้ารายวันจากราคาย้อนหลัง + สถานะ COT (Managed Money, Swap Dealer)</p>
+            </div>
+            <div class="flex gap-1" role="group" aria-label="เลือกจำนวนวันที่พยากรณ์">
+              <button data-d="5"  class="fcBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">5 วัน</button>
+              <button data-d="10" class="fcBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">10 วัน</button>
+              <button data-d="20" class="fcBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">20 วัน</button>
+            </div>
+          </div>
+
+          <div id="forecastEmpty" class="mt-4 hidden rounded-lg bg-paper p-4 text-xs leading-relaxed text-muted"></div>
+
+          <div id="forecastContent" class="mt-4 hidden">
+            <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <div class="rounded-lg bg-paper px-3 py-2.5">
+                <p class="text-[10px] text-muted">ราคาล่าสุด</p>
+                <p id="fcLastPrice" class="num mt-0.5 text-lg font-semibold">—</p>
+                <p id="fcLastDate" class="mt-0.5 text-[10px] text-muted">—</p>
+              </div>
+              <div class="rounded-lg bg-paper px-3 py-2.5">
+                <p class="text-[10px] text-muted">คาดการณ์วันสุดท้าย</p>
+                <p id="fcEndPrice" class="num mt-0.5 text-lg font-semibold">—</p>
+                <p id="fcEndChange" class="mt-0.5 text-[10px]">—</p>
+              </div>
+              <div class="col-span-2 rounded-lg bg-paper px-3 py-2.5 sm:col-span-2">
+                <p class="text-[10px] text-muted">โมเดล</p>
+                <p id="fcModel" class="mt-0.5 text-sm font-semibold">—</p>
+                <p id="fcObs" class="mt-0.5 text-[10px] text-muted">—</p>
+              </div>
+            </div>
+
+            <div class="relative mt-3 h-64">
+              <canvas id="forecastChart"></canvas>
+            </div>
+
+            <div class="mt-3 overflow-x-auto">
+              <table class="w-full min-w-[420px] text-xs">
+                <thead>
+                  <tr class="border-b border-rule text-left text-[10px] text-muted">
+                    <th class="py-1.5 font-medium">วันที่</th>
+                    <th class="py-1.5 text-right font-medium">คาดการณ์</th>
+                    <th class="py-1.5 text-right font-medium">ช่วง 80%</th>
+                  </tr>
+                </thead>
+                <tbody id="fcTableBody" class="divide-y divide-rule/70"></tbody>
+              </table>
+            </div>
+
+            <p id="fcCaveat" class="mt-3 rounded-lg bg-paper p-3 text-[11px] leading-relaxed text-muted"></p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 4 GROUPS ══ -->
+      <section id="groups" class="mt-3 scroll-mt-20">
+        <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+          <h2 class="text-sm font-semibold">สถานะการถือครองของผู้ซื้อขาย 4 กลุ่ม</h2>
+          <p class="mt-1 text-xs text-muted">ตัวเลขในวงเล็บคือการเปลี่ยนแปลงเทียบสัปดาห์ก่อนหน้า</p>
+          <div id="groupCards" class="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4"></div>
+        </div>
+
+        <div class="mt-3 rounded-xl bg-card p-4 ring-1 ring-rule">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold">แนวโน้มสถานะสุทธิรายกลุ่ม</h2>
+              <p class="text-xs text-muted">Net = Long − Short · เหนือศูนย์คือถือซื้อสุทธิ</p>
+            </div>
+            <div class="flex gap-1" role="group" aria-label="เลือกช่วงเวลากลุ่ม">
+              <button data-w="52"  class="grpBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">52 สัปดาห์</button>
+              <button data-w="156" class="grpBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">3 ปี</button>
+              <button data-w="520" class="grpBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule">10 ปี</button>
+            </div>
+          </div>
+          <div class="relative mt-3 h-72">
+            <canvas id="groupChart"></canvas>
+          </div>
+        </div>
+
+        <div class="mt-3 rounded-xl bg-card p-4 ring-1 ring-rule">
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="text-sm font-semibold">ตารางเปรียบเทียบรายสัปดาห์</h2>
+            <p class="text-xs text-muted">8 สัปดาห์ล่าสุด</p>
+          </div>
+          <div class="mt-3 overflow-x-auto">
+            <table class="w-full min-w-[820px] text-sm">
+              <thead>
+                <tr class="border-b border-rule text-xs text-muted">
+                  <th class="py-2 text-left font-medium">สัปดาห์</th>
+                  <th class="py-2 text-right font-medium">Open Interest</th>
+                  <th class="py-2 text-right font-medium text-prod">Producer L/S</th>
+                  <th class="py-2 text-right font-medium text-swap">Swap L/S</th>
+                  <th class="py-2 text-right font-medium text-mm">Managed Money L/S</th>
+                  <th class="py-2 text-right font-medium text-other">Other Rept. L/S</th>
+                </tr>
+              </thead>
+              <tbody id="grpTableBody" class="divide-y divide-rule/70"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ GOLD OPTION ══ -->
+      <!-- ══ HISTORY ══ -->
+      <section id="history" class="mt-3 scroll-mt-20">
+        <div class="rounded-xl bg-card p-4 ring-1 ring-rule">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h2 class="text-sm font-semibold">ประวัติสัญญาณ</h2>
+            <button id="openSignalGuide" type="button"
+              class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium text-ink ring-1 ring-rule hover:bg-paper">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3"/>
+                <path d="M7 6.3v3.4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                <circle cx="7" cy="4.3" r="0.75" fill="currentColor"/>
+              </svg>
+              ความหมายสัญญาณ
+            </button>
+          </div>
+          <div class="mt-3 overflow-x-auto">
+            <table class="w-full min-w-[560px] text-sm">
+              <thead>
+                <tr class="border-b border-rule text-left text-xs text-muted">
+                  <th class="py-2 font-medium">สัปดาห์</th>
+                  <th class="py-2 font-medium">สัญญาณ</th>
+                  <th class="py-2 text-right font-medium">ราคา</th>
+                  <th class="py-2 text-right font-medium">Δ MM net</th>
+                  <th class="py-2 text-right font-medium">คะแนน</th>
+                </tr>
+              </thead>
+              <tbody id="histBody" class="divide-y divide-rule/70"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <footer class="mt-6 border-t border-rule pb-8 pt-4 text-xs leading-relaxed text-muted">
+        ข้อมูล COT สะท้อนสถานะ ณ วันอังคาร เผยแพร่วันศุกร์ · ที่มา CFTC Disaggregated Futures-and-Options Combined
+        และราคาจาก Yahoo Finance — สัญญาณที่แสดงคือบริบทเชิงโครงสร้างของตลาด ไม่ใช่คำแนะนำการลงทุน
+      </footer>
+    </main>
+  </div>
+</div>
+
+<!-- ═════════ MODAL: ความหมายสัญญาณ ═════════ -->
+<div id="signalGuideBackdrop" class="fixed inset-0 z-50 hidden items-center justify-center bg-ink/60 p-4">
+  <div id="signalGuideModal" role="dialog" aria-modal="true" aria-labelledby="signalGuideTitle"
+       class="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-5 shadow-2xl">
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <h2 id="signalGuideTitle" class="text-base font-semibold">ความหมายของสัญญาณ</h2>
+        <p class="mt-0.5 text-xs text-muted">อ่านค่า Δ (การเปลี่ยนแปลงรายสัปดาห์) ไม่ใช่ระดับสะสมสูงสุด — ตามหลักการของระบบนี้</p>
+      </div>
+      <button id="closeSignalGuide" aria-label="ปิดหน้าต่าง"
+        class="shrink-0 rounded-md p-1.5 text-muted hover:bg-paper hover:text-ink">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 4l10 10M14 4L4 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+
+    <div id="signalGuideBody" class="mt-4 space-y-4"></div>
+
+    <div class="mt-5 rounded-lg bg-paper p-3 text-xs leading-relaxed text-muted">
+      <strong class="text-ink">ลำดับความสำคัญเมื่อกฎชนกัน:</strong> S3 &gt; S1 &gt; S2 เพราะ S3 คือการคลายสถานะ
+      ทั้งสองฝั่งพร้อมกัน ซึ่งน่าเชื่อถือสูงสุด ส่วน S4 เป็นชั้นบริบทที่แสดงคู่ขนานเสมอ ไม่ใช่สัญญาณเดี่ยว
+      สัญญาณทั้งหมดสะท้อนบริบทเชิงโครงสร้างของตลาด <strong class="text-ink">ไม่ใช่คำแนะนำจุดเข้าออกคำสั่งซื้อขาย</strong>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════════
+// ตั้งค่าปลายทาง backend
+// ══════════════════════════════════════════════════════════════════
+const API_BASE = "http://127.0.0.1:8000";
+
+// ข้อมูล COT จริงจาก CFTC (gold.xlsx) ฝังไว้เพื่อให้หน้าใช้งานได้แม้ API ล่ม
+// รูปแบบ: [date, oi, pdL, pdS, swL, swS, mmL, mmS, otL, otS]
+const COT_EMBED = [["2016-01-05",413688,22948,67800,62783,37206,79732,95659,73800,31313],["2016-01-12",397565,23309,75124,52700,44470,82908,82816,75747,31121],["2016-01-19",408835,24206,73168,53388,44569,84054,83615,74266,31011],["2016-01-26",385350,19845,72454,47192,54416,95745,78942,74726,32489],["2016-02-02",379185,24395,80385,48605,69970,100566,71530,76402,32616],["2016-02-09",410833,23988,91728,52921,90104,121059,60423,80695,42903],["2016-02-16",428912,26085,111860,55745,101954,126219,45206,82882,46535],["2016-02-23",445290,19329,123277,53429,112630,141373,32276,86008,50127],["2016-03-01",450555,16920,129587,56255,115019,133823,29453,89363,41320],["2016-03-08",499110,17739,143726,54685,124070,160317,32890,92578,45195],["2016-03-15",493086,19486,143435,60147,121729,159202,29425,88457,48722],["2016-03-22",510579,19858,150125,59953,129680,174457,29558,84189,50257],["2016-03-29",480461,24190,150685,56815,138284,184135,29930,77947,42346],["2016-04-05",474094,21204,151023,57395,134821,186716,33958,77065,39423],["2016-04-12",504523,21129,164322,60602,149196,202500,31866,83841,40668],["2016-04-19",503331,20069,166296,56336,150230,208661,34554,82482,39752],["2016-04-26",497884,18752,165367,55117,148610,206476,34426,81697,32890],["2016-05-03",565774,19259,189227,54485,179418,248842,29947,89634,36881],["2016-05-10",579777,20797,178897,54725,181621,246782,35591,90469,36762],["2016-05-17",595077,21631,170642,54437,195669,247059,34618,93689,39842],["2016-05-24",542958,59557,156435,47330,175665,205180,48719,86086,35915],["2016-05-31",494321,47227,142196,47595,166664,192160,43549,82429,33905],["2016-06-07",496330,26136,147563,46410,168675,212061,34695,83627,32374],["2016-06-14",545357,26395,176665,44717,192524,257500,28260,90057,39435],["2016-06-21",571517,28287,177414,42538,205548,274936,24528,83889,41568],["2016-06-28",613792,30055,179646,41808,218538,285895,24845,87233,46363],["2016-07-05",652971,29270,178378,43240,234339,300070,26994,89520,46633],["2016-07-12",633020,35210,176993,39218,222887,296106,36977,81975,43641],["2016-07-19",617069,31861,167764,37838,217412,287317,34920,79554,46040],["2016-07-26",576325,31448,166649,35575,209397,278777,31356,68649,37115],["2016-08-02",582211,29097,175971,37132,214285,288542,33813,77259,37805],["2016-08-09",575399,29067,165875,32598,208731,281496,36244,74975,33780],["2016-08-16",572496,30091,169299,32762,204547,277152,34425,74383,33259],["2016-08-23",572973,23865,163651,32034,209723,284550,30866,75235,34310],["2016-08-30",558398,22280,158022,31637,197108,266680,35086,73906,29159],["2016-09-06",590656,22474,176277,28000,204170,291692,22157,78683,40358],["2016-09-13",575002,24700,173534,29423,191960,271631,28654,80145,37709],["2016-09-20",558791,25040,163063,33793,186385,246119,32972,80207,37175],["2016-09-27",583161,26681,176013,32038,197300,282151,26974,76821,40094],["2016-10-04",544824,27604,155278,29901,173469,244765,44649,79371,33979],["2016-10-11",500328,28660,143233,34348,140974,203033,54240,80353,33927],["2016-10-18",497061,30322,136610,35745,132128,190008,59054,84337,35673],["2016-10-25",507617,29237,140772,34869,140933,199094,55184,86282,33212],["2016-11-01",521506,27666,153593,36607,149931,203670,37403,84638,35774],["2016-11-08",528203,27597,158095,31113,146201,211670,38033,78190,34589],["2016-11-15",479237,27283,134182,28878,121945,178132,43452,67618,24638],["2016-11-22",461062,20805,119000,23389,117366,171864,47475,69782,27086],["2016-11-29",405661,24102,114690,25014,102249,162086,55145,67645,23016],["2016-12-06",393524,21781,105209,28749,100265,150856,68538,76819,22757],["2016-12-13",397034,22199,103372,28815,97528,146150,77432,83605,23012],["2016-12-20",398661,22130,101474,39604,94282,137588,83783,81479,20450],["2016-12-27",401513,23547,97994,41038,87558,130595,87229,75943,20966],["2017-01-03",424673,24768,97997,45237,89620,127786,91229,81069,21076],["2017-01-10",444001,24588,96661,43277,97020,135563,79884,78437,24634],["2017-01-17",467937,23844,99443,55461,102973,141566,82931,76578,28172],["2017-01-24",482374,23117,108482,58497,99506,135159,75405,74695,25042],["2017-01-31",398433,20746,110568,58393,100374,140663,70826,71751,22433],["2017-02-07",415543,22551,115774,62157,103080,142542,72393,73866,26866],["2017-02-14",415128,20992,113422,63220,98578,135739,72114,76520,30393],["2017-02-21",427168,20557,116326,61324,105119,142639,64597,77034,31313],["2017-02-28",446081,19559,126908,56402,128960,166437,52191,81057,31505],["2017-03-07",434401,20164,118027,57578,112363,150277,60030,79692,36254],["2017-03-14",426170,20937,109327,56881,91778,121179,74805,89136,29472],["2017-03-21",446880,18872,117388,57057,87538,130259,74064,89460,29403],["2017-03-28",449418,17857,131503,59196,97664,150879,59836,76960,30183],["2017-04-04",427808,16834,139711,58279,106418,163428,54302,75633,29323],["2017-04-11",456131,17653,153297,58431,110151,179841,46830,73163,33508],["2017-04-18",472263,17577,167357,56226,117510,199001,47765,80310,35778],["2017-04-25",475985,17618,169292,57558,120464,207394,47014,80074,39777],["2017-05-02",461905,17427,170723,59280,109970,195331,51720,80701,34678],["2017-05-09",433033,17259,155245,59970,86406,151419,55457,84696,30652],["2017-05-16",435021,20336,148925,63431,77701,132094,66226,89438,28582],["2017-05-23",462572,19274,166109,57061,84517,161893,50845,79859,31140],["2017-05-30",434246,21570,177812,60524,87501,175304,51171,75238,32281],["2017-06-06",494041,18528,192484,68622,111020,229476,63427,82764,44348],["2017-06-13",471134,16856,183073,67130,104524,214955,67459,82223,39445],["2017-06-20",445841,16301,164235,71455,88537,165035,65659,87585,36286],["2017-06-27",453144,16646,156631,74033,83911,144515,71860,92071,33054],["2017-07-03",457201,18166,146455,77273,56210,129780,96091,91901,31791],["2017-07-11",475669,24005,141642,85352,41631,123619,100397,94018,56980],["2017-07-18",484204,24116,144914,92227,45064,127028,98115,90204,58979],["2017-07-25",463827,21746,159307,94201,59983,136359,62735,83940,66733],["2017-08-01",448709,19082,167618,85526,80375,158082,39624,81684,70470],["2017-08-08",448727,19019,168329,85898,96099,164828,28843,81549,68697],["2017-08-15",477921,16379,179160,82435,116285,195433,18877,82297,71119],["2017-08-22",500443,15981,195128,86325,127096,209717,15638,85994,71635],["2017-08-29",538875,17352,205953,75594,135022,235065,13939,83818,73897],["2017-09-05",566817,18473,212267,76165,144178,251489,14301,84584,76474],["2017-09-12",580606,17582,209237,76515,156958,270413,16896,81079,79836],["2017-09-19",570096,17562,207442,83263,146424,251735,18353,78911,76204],["2017-09-26",549637,18923,208745,88232,131881,219134,23158,84121,67503],["2017-10-03",525127,17710,203648,84906,123391,204361,24917,82935,58524],["2017-10-10",520005,18662,201414,80325,120570,193154,21824,86073,57291],["2017-10-17",528800,18809,206035,83262,117660,196555,27040,88062,56853],["2017-10-24",526674,18360,201023,84376,112366,192701,24333,82820,59803],["2017-10-31",531918,17081,200789,86265,113205,182652,16687,86058,58928],["2017-11-07",536843,17307,198381,82790,117003,187782,17070,84789,59711],["2017-11-14",533054,18323,202533,83054,114635,190657,14559,80839,61853],["2017-11-21",531612,19514,204896,80549,120223,187292,14137,85642,56970],["2017-11-28",503810,17891,202648,75448,137232,208518,9978,78866,52989],["2017-12-05",472795,20819,179239,82926,114396,167174,32664,84060,45241],["2017-12-12",446618,19245,150986,106267,93989,123139,46913,78773,47931],["2017-12-19",453595,17300,148160,106269,103626,116642,35397,80831,48281],["2017-12-26",456470,19715,161264,105936,113856,127715,19957,74875,46685],["2018-01-02",500731,22495,180714,108799,128180,168423,20249,73005,57911],["2018-01-09",555455,21117,198371,105725,148742,216115,20065,73046,65808],["2018-01-16",582333,22861,212879,108318,150807,227373,25841,74490,64311],["2018-01-23",582421,23933,217184,109160,150461,236003,26467,69809,64661],["2018-01-30",559332,22684,209619,106587,144728,230597,23035,67730,68030],["2018-02-06",535321,26595,202225,104742,134563,206377,23448,67451,59503],["2018-02-13",511745,22749,194149,98254,121390,186183,16426,65677,59828],["2018-02-20",528154,30967,207285,96427,134987,190398,14943,66807,51340],["2018-02-27",532860,30993,206218,106048,130619,177475,27456,74506,45807],["2018-03-06",508100,25642,199419,106499,137625,172492,21786,73095,39978],["2018-03-13",526762,25466,195189,107910,126997,162337,26472,72094,40011],["2018-03-20",545499,25478,182047,109340,120041,148152,36345,75730,38806],["2018-03-27",529690,25165,204181,106631,153975,183080,20917,75952,34761],["2018-04-03",493141,30267,197029,113668,135771,155590,28948,79087,39140],["2018-04-10",499588,32193,197288,116790,127347,154044,28482,80413,50603],["2018-04-17",510229,33041,206888,122287,133702,157925,25287,79363,48932],["2018-04-24",506410,32696,196159,123783,122120,143258,43597,82546,45561],["2018-05-01",507756,33204,181259,124348,108165,119064,79747,90513,23051],["2018-05-08",491398,34195,182428,121849,108600,109508,67869,89040,23239],["2018-05-15",519958,35688,175548,121526,99755,103256,84258,98212,24767],["2018-05-22",502942,37972,167276,118596,104867,91411,74880,98266,23840],["2018-05-29",469382,33583,170958,114188,113502,107882,53881,85770,24641],["2018-06-05",450641,42172,140296,97169,133392,100027,49147,85294,24758],["2018-06-12",448695,43227,138843,93548,138519,104313,48809,88439,23703],["2018-06-19",468345,45041,116231,95221,138155,94297,83769,108618,22634],["2018-06-26",468573,45108,116919,101135,124287,94845,94869,100273,23577],["2018-07-03",494164,40794,112038,96505,118411,104275,105529,106208,26627],["2018-07-10",503593,34107,103749,92406,123158,107402,109929,106908,22947],["2018-07-17",528278,29729,101723,102289,103930,107775,134224,110652,26362],["2018-07-24",496620,27066,84366,96946,105314,110249,146671,110371,25352],["2018-07-31",452655,26485,79249,96716,91870,110580,153108,98675,20810],["2018-08-07",459474,24692,72357,105342,83286,105849,171965,102443,23639],["2018-08-14",476739,27574,66183,109688,78429,104803,188127,106976,27340],["2018-08-21",483730,26516,63915,109023,73309,107143,197171,106357,25039],["2018-08-28",479283,26507,67699,108361,75431,105971,181743,101399,28690],["2018-09-04",473118,27115,65731,111868,66727,101651,184373,98111,28886],["2018-09-11",469450,28256,68613,111917,71547,100593,175812,97774,30145],["2018-09-18",469436,29357,68328,111685,71023,97904,180367,99893,28274],["2018-09-25",460279,27277,67802,110272,62667,98513,182190,94427,28398],["2018-10-02",459776,31567,70177,108806,61321,100671,180274,91819,34038],["2018-10-09",465253,35501,69634,111386,51387,82218,191672,97528,26249],["2018-10-16",474418,36197,98154,105647,75686,95333,144715,93867,26818],["2018-10-23",477832,34663,102587,102239,80835,99368,137484,93210,25706],["2018-10-30",474941,36057,97111,102321,72472,80105,135628,88649,19932],["2018-11-06",494911,37023,99334,99126,74951,82188,129634,86953,20481],["2018-11-13",539520,47551,89514,105368,65228,79529,158723,88887,18940],["2018-11-20",525940,47454,93564,101125,78155,84356,136207,81150,20403],["2018-11-27",442801,35196,76210,101201,76287,79992,138382,76787,16526],["2018-12-04",399919,19212,74759,92265,94967,99414,109201,73605,14817],["2018-12-11",402250,18936,83116,95532,108720,89942,90008,79658,19093],["2018-12-18",412485,18531,78969,93951,126188,100828,89630,81340,16578],["2018-12-24",442727,20170,86065,90994,153318,119146,77178,89476,20459],["2018-12-31",451360,19300,92197,91520,163237,121205,71021,88936,15348],["2019-01-08",455232,12969,75020,95600,154736,112690,80219,86870,20125],["2019-01-15",501605,43351,103302,99528,147690,115651,90716,86145,23167],["2019-01-22",513509,50087,110130,102479,134513,105295,89085,81215,22921],["2019-01-29",483390,14289,84947,102371,150322,126404,94007,85914,18718],["2019-02-05",479736,15593,89160,111952,169627,134954,90079,83246,19026],["2019-02-12",476083,16566,90733,113352,165296,132365,89746,81805,19550],["2019-02-19",504639,15236,103673,102849,180889,166411,84034,87675,24405],["2019-02-26",501268,15312,101061,102816,176912,154217,75658,82618,25481],["2019-03-05",471311,13920,86101,105762,147578,125903,94656,76725,19954],["2019-03-12",530030,27128,87449,104043,152196,123293,105886,81957,20545],["2019-03-19",514163,33592,97589,99696,151358,123909,93434,80416,22495],["2019-03-26",509575,14704,84053,96748,178833,135373,77386,79524,17573],["2019-04-02",440170,16339,74574,98592,158587,110816,86198,82968,13030],["2019-04-09",447539,16242,75839,89285,162497,117917,80880,81590,13263],["2019-04-16",440581,18586,61796,102113,137333,96196,111583,87017,15357],["2019-04-23",440048,17090,53073,111538,132951,88989,122818,87702,16478],["2019-04-30",430011,16898,67873,107267,144604,95159,95083,82116,15973],["2019-05-07",450039,19282,67234,97242,145649,102975,93428,82826,16962],["2019-05-14",517995,37635,102517,93005,165306,138467,85921,87894,15904],["2019-05-21",508643,42131,104863,97934,143140,114986,99049,88642,15774],["2019-05-28",505126,47857,110653,101915,149073,119314,93040,75149,14735],["2019-06-04",481495,19523,106293,92611,178417,159663,63481,80814,20881],["2019-06-11",496663,22226,114842,95607,205018,169640,40480,80474,25396],["2019-06-18",525636,22520,124772,99745,221348,191766,41250,82867,29060],["2019-06-25",577605,27515,155003,110102,242764,204918,27177,93190,34377],["2019-07-02",605949,26439,169945,111301,254617,214186,20099,98516,33657],["2019-07-09",598977,23099,172713,113865,242667,208301,25690,97804,35652],["2019-07-16",601900,36109,173109,106552,246960,211322,31263,98213,32771],["2019-07-23",616859,35072,175270,105569,253210,208153,29980,103728,30651],["2019-07-30",563298,16484,151075,103601,256977,215581,29868,96633,27958],["2019-08-06",600317,21577,160907,97634,282629,248687,21854,101871,36159],["2019-08-13",593962,20942,159798,96263,281134,245631,22020,100592,34113],["2019-08-20",594807,21303,166620,94900,285833,249696,19850,102598,32451],["2019-08-27",636183,28589,172923,95266,284738,258269,31553,104340,34218],["2019-09-03",634358,23849,178506,97751,280835,265175,33549,100210,31289],["2019-09-10",614753,23199,177027,109076,260859,239475,33294,94639,31095],["2019-09-17",630990,21281,180842,108242,267080,241936,28080,99575,30832],["2019-09-24",658944,20674,185082,109466,290203,265508,27637,104885,30312],["2019-10-01",604885,23159,173858,109866,262855,219990,29179,102810,24628],["2019-10-08",616957,22269,176511,112484,269184,231976,31475,102407,27345],["2019-10-15",607387,22787,168098,117918,260882,213987,38200,105383,28143],["2019-10-22",625528,22191,167457,119656,269747,218317,33879,104600,29906],["2019-10-29",643442,22136,161711,122994,284635,230664,32106,104759,26802],["2019-11-05",690181,17855,157995,126365,303363,233167,35920,111424,28843],["2019-11-12",708463,41974,164545,123638,302535,209432,33991,113757,22132],["2019-11-19",719211,38835,166073,122366,314223,221795,26596,115501,24841],["2019-11-26",669268,24107,145103,121252,305723,218724,24437,106562,29215],["2019-12-03",701016,25300,154111,122418,316394,232276,24314,114249,31506],["2019-12-10",690003,25199,147377,124100,304205,212929,29281,116240,28968],["2019-12-17",716987,24515,157858,123907,309183,228616,26895,115877,31323],["2019-12-24",748737,26943,164091,122413,325661,245366,26520,118944,32138],["2019-12-31",786166,25430,171537,124486,344870,258357,25625,123263,28070],["2020-01-07",785857,23615,167363,124087,336420,261083,31326,122397,29863],["2020-01-14",796883,40178,181318,125556,334235,262402,31943,114407,25631],["2020-01-21",793829,42645,185232,121988,331304,258269,34437,116524,22661],["2020-01-28",715539,22487,161450,119308,341159,254259,34321,122142,11988],["2020-02-04",654572,16469,155103,119930,312983,223762,42152,132147,13951],["2020-02-11",658024,17009,158762,120850,316888,231499,35828,125036,12733],["2020-02-18",715317,17130,176211,113558,340089,278286,39740,130063,14960],["2020-02-25",732917,20685,184340,111284,323250,263218,32372,126121,21102],["2020-03-03",691985,18481,178821,109639,300310,242921,27560,123252,18880],["2020-03-10",633470,30447,171242,114320,301829,220642,10457,115648,26302],["2020-03-17",573925,28316,161694,95537,263868,164979,10900,152426,24589],["2020-03-24",547334,22853,157635,92974,270015,158965,1556,158963,28006],["2020-03-31",495652,25659,137868,81549,253299,156820,4222,130709,24458],["2020-04-07",480050,19757,129690,80746,246424,157005,4523,122875,26415],["2020-04-14",489965,19415,127666,78256,250413,162412,7168,124205,26948],["2020-04-21",493158,18506,126959,76849,248469,155492,9221,126771,23471],["2020-04-28",500816,17954,130880,74946,255649,154025,7619,133357,17034],["2020-05-05",490343,17834,126428,76763,249805,142326,9085,133245,16482],["2020-05-12",496739,22089,127265,78459,251816,144015,21798,133756,13145],["2020-05-19",528205,21879,129189,79365,262229,153961,26897,141433,16709],["2020-05-26",519374,16983,105449,77107,262963,145566,32485,142582,17749],["2020-06-02",475745,17550,99413,75127,249887,133655,33300,138541,19862],["2020-06-09",475661,18289,101180,76023,236589,126407,35230,137565,20129],["2020-06-16",489563,17761,105338,76758,247201,135945,31257,141450,21790],["2020-06-23",532101,17771,111941,74444,267566,161593,32078,146866,24424],["2020-06-30",561628,19798,115221,75447,281487,173526,34971,155416,27301],["2020-07-07",572776,20352,112705,72947,283186,179810,40467,157220,29205],["2020-07-14",580175,22532,118784,73071,278837,177400,42427,152805,25350],["2020-07-21",603138,23045,123303,71634,275235,181256,40987,152981,26814],["2020-07-28",598629,20494,110969,74894,262796,159894,42758,152694,33029],["2020-08-04",561837,19158,116748,79645,258400,165357,51885,156490,31216],["2020-08-11",553345,20119,113766,81712,256396,155418,57726,151449,25088],["2020-08-18",544010,19419,110411,82563,259342,151016,55578,151353,23273],["2020-08-25",549282,21545,114604,83785,257171,145055,58206,156504,22315],["2020-09-01",547704,17887,115747,80332,259878,147175,49433,158943,25889],["2020-09-08",557457,17766,118943,79781,259644,155528,51236,157645,25464],["2020-09-15",578925,19681,121622,81024,264269,166571,55473,157941,28062],["2020-09-22",575877,20734,113771,83669,257040,144670,63222,164345,26733],["2020-09-29",562396,18095,114937,80681,270017,140320,45948,175786,26499],["2020-10-06",555555,17090,114476,80604,271686,139350,44738,181572,27597],["2020-10-13",553197,15637,116151,80511,264652,138169,56388,188817,29927],["2020-10-20",562993,16306,117914,80534,273050,149108,58543,191098,32059],["2020-10-27",560900,16885,110953,78297,280691,149140,47265,176923,30164],["2020-11-03",544774,15422,108060,76841,273541,140094,49399,181704,29490],["2020-11-10",547449,15986,108842,75840,266407,130105,50322,188411,28458],["2020-11-17",557533,16015,113514,74682,271755,139550,49103,190148,29325],["2020-11-24",555253,16425,112076,74823,264001,137503,52155,182821,24267],["2020-12-01",538042,18504,119429,73475,265813,134446,48903,189898,15127],["2020-12-08",549520,15367,118240,71031,268881,147844,49033,190427,20018],["2020-12-15",550366,14192,118294,69353,271593,151901,50022,188709,19004],["2020-12-21",560769,12636,120377,68376,275734,158194,50070,191676,21604],["2020-12-29",556414,12327,117811,69183,270953,159673,50678,182139,22262],["2021-01-05",568888,13307,118767,66849,282312,167096,50527,182850,20101],["2021-01-12",555538,15210,113944,67748,259315,131057,52823,182160,14167],["2021-01-19",541330,13477,114372,67123,253695,127161,49090,180346,11779],["2021-01-26",534574,10278,113013,66964,263177,142815,46416,170717,9570],["2021-02-02",520011,10760,114887,64507,258337,137062,49284,177290,7942],["2021-02-09",506741,9490,112486,63984,253183,134733,47093,174593,10826],["2021-02-16",503016,11567,111400,64698,239943,125997,58041,177586,10573],["2021-02-23",481125,10658,103728,64009,222668,125124,56001,158957,12347],["2021-03-02",467008,12025,98920,63300,198608,106608,60648,158925,15247],["2021-03-09",473871,14579,96258,63924,190125,96223,66793,158616,12883],["2021-03-16",476467,15152,94226,64465,194866,100669,59548,155568,16493],["2021-03-23",485457,15470,93043,63078,187308,107941,64420,154833,24287],["2021-03-30",467321,16441,89329,63726,184564,113009,69936,150444,25989],["2021-04-06",463353,11916,90527,65739,201927,121563,55091,154140,31103],["2021-04-13",460733,11585,86637,67517,201253,112070,58263,157443,30376],["2021-04-20",471738,11755,87520,67853,205281,116843,60419,159142,34068],["2021-04-27",473305,11542,83268,69531,204982,117144,66493,153573,33605],["2021-05-04",470341,11043,78286,68469,203149,117434,63809,152760,35644],["2021-05-11",498693,16359,87150,67146,223439,131295,49680,150866,40226],["2021-05-18",520410,18969,84133,67198,234935,141776,49786,148491,41592],["2021-05-25",510164,12526,90986,68215,240624,143862,36607,144404,37017],["2021-06-01",489198,11017,80820,64564,242936,147270,37297,141556,37828],["2021-06-08",491858,13828,78884,63894,243644,145037,37373,143744,42021],["2021-06-15",480127,15205,79346,65057,232142,138546,41754,135401,40157],["2021-06-22",453940,14480,70690,66653,212825,110038,47502,143115,39437],["2021-06-29",453360,14517,68972,67200,207865,115438,54056,138768,37924],["2021-07-06",465811,14158,75008,66765,220641,131218,53258,139327,34466],["2021-07-13",495798,14757,75926,66111,225970,135938,49647,139605,35060],["2021-07-20",490520,14367,78197,67561,232279,135163,44735,142149,36605],["2021-07-27",500187,13874,70160,67644,240172,131635,41405,142053,32895],["2021-08-03",485663,17427,73826,73284,248169,132920,43047,140223,33761],["2021-08-10",477232,15344,62975,72207,220217,111892,76489,165368,32365],["2021-08-17",485485,14549,66385,73900,236064,117272,58194,167165,34701],["2021-08-24",504735,14405,69571,73832,253344,126636,51192,172448,37239],["2021-08-31",507113,13580,66321,72573,260344,136555,54878,174449,39576],["2021-09-07",506772,14223,66798,72865,256098,129044,61449,176973,38529],["2021-09-14",506356,13149,67186,72791,253005,130837,59615,176151,39613],["2021-09-21",492765,15089,61902,72105,237936,119777,72933,176893,36090],["2021-09-28",490858,18460,60320,72672,220963,118923,88062,174891,37353],["2021-10-05",483789,14867,57675,77225,238119,126745,72579,169194,40778],["2021-10-12",484382,14259,62099,77500,237274,131668,73149,166835,39815],["2021-10-19",485974,12474,63126,76694,245232,124560,66761,175322,39772],["2021-10-26",509794,13505,64600,72885,261444,141280,54918,172366,44168],["2021-11-02",507616,13986,66307,71365,258921,136944,51705,174147,44257],["2021-11-09",571025,17412,76212,68244,284933,168133,42523,172978,48407],["2021-11-16",612612,17998,86192,68512,287857,185468,43083,175061,57666],["2021-11-23",559823,14322,82848,67987,267295,152273,46934,174136,45064],["2021-11-30",531868,13584,67407,70183,274963,137469,45384,172784,39009],["2021-12-07",499307,11713,65860,76290,267766,125067,44326,175451,39007],["2021-12-14",503709,11823,63346,76488,256376,121492,58075,176650,37666],["2021-12-21",500846,11693,67486,74493,254729,124120,52372,172508,38445],["2021-12-28",508912,11047,69200,74017,261528,130389,46726,173490,43997],["2022-01-04",502717,11574,65049,74428,258411,124252,44744,172331,40484],["2022-01-11",546516,15004,65710,81976,256343,119297,44987,170805,45378],["2022-01-18",539204,19188,70150,87223,257329,119807,48014,170721,48307],["2022-01-25",572078,13494,79264,86207,270183,140640,39265,172775,53999],["2022-02-01",515331,13294,65627,95639,244648,108309,58395,167685,45457],["2022-02-08",512842,12653,66144,97101,255044,117234,47767,162325,45086],["2022-02-15",558645,13840,77522,97299,272492,151530,43824,161739,55832],["2022-02-22",611488,14747,85658,97911,296722,183356,44380,166740,62568],["2022-03-01",615600,18689,94503,95700,305695,187215,38594,166962,57961],["2022-03-08",638502,23736,99813,100587,331456,181510,38537,183108,51693],["2022-03-15",617605,26287,93725,96765,326768,165597,39060,181134,45883],["2022-03-22",605191,28886,93799,103016,319698,152589,37457,176071,43171],["2022-03-29",574521,18389,70315,89623,323634,146486,38184,181146,31852],["2022-04-05",560666,18989,71333,87989,314403,148320,46693,176250,32336],["2022-04-12",577639,20272,72001,88326,324690,165244,48219,172920,35658],["2022-04-19",575202,22596,72545,89457,315033,157560,56294,173185,34694],["2022-04-26",557785,22665,66838,90532,295653,138215,57098,172296,35389],["2022-05-03",560441,23431,63612,92223,283894,128828,60981,164611,33290],["2022-05-10",571447,22242,65143,89722,274577,123931,61939,165016,33693],["2022-05-17",555756,24468,62025,89655,258977,115572,72212,167439,35439],["2022-05-24",530098,21184,63194,88932,258869,121174,60117,161028,38272],["2022-05-31",513722,19970,65269,87433,242190,112731,61938,156728,34932],["2022-06-07",494130,16570,61112,83943,239287,115215,57684,155141,37404],["2022-06-14",497456,14920,55975,90077,227591,109111,72206,157485,39792],["2022-06-21",500276,13019,57208,89736,232476,113220,63417,154899,41415],["2022-06-28",497005,13971,57758,88706,226926,110850,74748,157862,36271],["2022-07-05",498210,15404,53894,88196,215291,103472,86438,164334,35708],["2022-07-12",542493,18149,46218,88915,198634,91669,97802,159457,35203],["2022-07-19",524786,21601,46644,91690,178909,91056,109794,149948,36255],["2022-07-26",487515,16057,41222,90911,174168,92216,111309,149445,37662],["2022-08-02",459649,13831,44218,87907,193085,96634,80779,145494,37023],["2022-08-09",453540,12940,49401,83302,201395,100013,59279,142893,40776],["2022-08-16",453960,14278,48802,82580,201765,96765,60392,141431,36640],["2022-08-23",457762,14957,47144,84037,189922,95850,73739,141577,37841],["2022-08-30",459165,14612,45959,86070,184402,91761,79973,143553,37607],["2022-09-06",465908,15564,41624,87940,175944,85842,92804,145685,34866],["2022-09-13",463674,12589,39708,88814,172633,80300,98637,145632,29951],["2022-09-20",469395,16194,33858,96320,154084,78544,115239,136013,33596],["2022-09-27",457061,15381,28004,95632,145147,74171,117265,132983,37808],["2022-10-04",437065,12114,31266,92811,170207,82806,89681,133158,37898],["2022-10-11",431395,11578,34246,89504,170564,78365,83945,134196,34196],["2022-10-18",434701,14351,29916,88947,163412,73344,99042,137546,34892],["2022-10-25",456072,18036,28462,91650,161437,72016,110804,140837,34017],["2022-11-01",467276,17255,26028,94979,160988,78213,119614,138128,32104],["2022-11-08",488471,16738,35324,94889,167447,88059,104405,135076,36392],["2022-11-15",495171,14602,51584,93757,191083,95065,69608,132217,31405],["2022-11-22",449542,14133,54527,96891,186561,92161,72730,122123,25441],["2022-11-29",433661,12158,48784,98970,181577,88032,73312,121129,25846],["2022-12-06",422100,11712,49665,92319,184445,93629,70142,117843,26205],["2022-12-13",437040,13758,50601,94229,195915,103737,66288,120672,32472],["2022-12-20",436653,13860,51557,92184,197001,104813,65718,121323,31570],["2022-12-27",440040,13950,56342,91331,202715,106983,56106,122542,36539],["2023-01-03",449393,13217,57119,90625,206697,109140,54559,121661,34576],["2023-01-10",481519,12243,60946,88381,212156,116604,54795,126962,38236],["2023-01-17",491818,14854,58789,90498,222476,124222,54845,122652,38789],["2023-01-24",499927,12705,54314,92041,230986,131501,51622,121810,44016],["2023-01-31",471642,14955,51775,88758,232458,138125,53678,118292,42458],["2023-02-07",439755,15251,46233,90840,212824,115521,55945,107777,38538],["2023-02-14",426116,12225,42118,92860,192039,106106,64933,104268,39912],["2023-02-21",422648,10696,40479,91556,191128,104710,68004,105475,35080],["2023-02-28",426890,12772,41995,93853,192117,99425,72850,108994,26976],["2023-03-07",458474,11617,41216,95312,184633,103439,89040,112135,28060],["2023-03-14",459064,11602,47669,100461,219834,118560,58839,112263,31653],["2023-03-21",469874,14502,55788,94971,237253,125090,43861,112801,35425],["2023-03-28",478611,15709,60038,93156,250335,130530,31370,114605,32135],["2023-04-04",476592,15763,51702,93463,275774,142348,32217,123816,38731],["2023-04-11",476567,16516,51449,95817,277432,135015,30409,125150,37011],["2023-04-18",482254,17347,51291,97059,279540,137170,34474,122891,35694],["2023-04-25",473209,17543,52563,97156,274064,135979,33176,117207,34746],["2023-05-02",493804,18762,54293,98325,280378,143191,29401,119222,37445],["2023-05-09",518951,18250,55018,99775,285522,143463,32477,123009,38181],["2023-05-16",521832,18148,52362,99973,277316,139786,35803,115464,39633],["2023-05-23",479080,18435,44860,99737,260335,128550,35411,107599,40006],["2023-05-30",449515,12396,43768,93334,251967,122904,36201,114402,31789],["2023-06-06",436301,13860,43638,91274,259683,120985,27557,116482,34269],["2023-06-13",432898,14225,41384,93585,252488,110512,35869,116805,31239],["2023-06-20",438037,13663,40542,94588,254246,110314,34275,118994,32058],["2023-06-27",431861,11393,37626,95100,244202,108209,38534,112672,30437],["2023-07-03",448063,13966,41391,90454,247746,123017,39869,112064,32115],["2023-07-11",483170,13062,42136,89493,248168,124394,41951,116152,32841],["2023-07-18",482104,14281,53555,84927,259368,147644,32326,116096,38066],["2023-07-25",476176,16452,55396,86053,245319,132603,37316,115626,37274],["2023-08-01",439383,16334,46546,88352,244985,123802,43793,115183,30268],["2023-08-08",427759,15411,41861,88184,229288,114585,55979,114261,29882],["2023-08-15",433611,17862,39392,86688,207088,113146,83610,119932,28332],["2023-08-22",430239,18338,35940,87166,190600,105085,95976,121255,28418],["2023-08-29",442806,20564,41031,83759,203886,120609,81367,115445,31415],["2023-09-05",438672,17994,42368,81715,215580,120222,69857,115580,27939],["2023-09-12",441221,17361,39709,83274,205736,117737,83166,117967,28674],["2023-09-19",438078,15305,40593,82606,210250,121172,73782,116544,28771],["2023-09-26",435620,13152,39819,88126,196295,114668,91230,120892,28515],["2023-10-03",431226,16614,38810,85747,175533,100500,108061,127906,29119],["2023-10-10",436499,19010,37437,91619,163620,93934,120701,126398,28198],["2023-10-17",439581,11737,41703,84592,182625,104708,89605,126704,29069],["2023-10-24",463476,10642,50787,81233,206961,122456,66708,129013,35376],["2023-10-31",475808,11165,55350,79294,217816,140111,65271,120942,32357],["2023-11-07",484347,10487,55470,82014,223122,140609,62374,121044,33063],["2023-11-14",486634,12176,55241,83706,217660,132924,68609,121428,30367],["2023-11-21",508429,14081,59990,80946,225272,144381,65246,125320,32750],["2023-11-28",505658,14333,64941,76804,244788,169695,54802,120150,34959],["2023-12-05",487469,12631,62325,76376,253627,159907,50520,128933,34776],["2023-12-12",469939,13420,58535,76081,243774,149634,54106,123902,31197],["2023-12-19",481203,12836,60852,75017,254059,155697,47421,125275,32212],["2023-12-26",491343,13243,58256,74400,261732,152801,46347,137042,35778],["2024-01-02",500364,13674,55375,76117,269894,154384,45235,136322,37822],["2024-01-09",489849,11949,56950,78213,250913,134333,45874,137332,37177],["2024-01-16",489334,12864,53418,75791,242657,130931,47702,131429,34765],["2024-01-23",465872,13724,52673,78535,231679,111298,50265,129802,21361],["2024-01-30",430328,15272,49631,77882,214041,108093,52069,111129,19362],["2024-02-06",419121,14285,50903,77734,221357,114316,46247,114307,20638],["2024-02-13",420812,15888,48131,78854,199591,100642,66466,116863,19871],["2024-02-20",407063,10614,49065,77980,198940,98840,48917,112194,21855],["2024-02-27",411195,11378,51050,78743,197423,103885,47732,111063,25580],["2024-03-05",471616,11650,60537,77009,234914,145106,35343,119042,37512],["2024-03-12",516057,30471,78911,75076,244909,173994,32911,109068,48549],["2024-03-19",535047,32136,81346,77067,245387,172588,29692,106144,47438],["2024-03-26",503642,32765,80270,80421,251256,163006,27211,102641,39142],["2024-04-02",500045,32235,77122,80217,261044,173073,25993,108326,48156],["2024-04-09",505214,34191,76217,79228,261784,174617,32885,105182,44495],["2024-04-16",517193,37797,71700,78012,266867,169910,35174,108867,41680],["2024-04-23",516249,37917,70510,75873,270152,176400,34261,103135,42383],["2024-04-30",519791,37917,68644,73085,269856,171853,36826,106997,37814],["2024-05-07",529835,35488,67658,73131,268227,164780,38681,107364,33896],["2024-05-14",522952,35446,65005,75210,277761,171868,41433,105774,31713],["2024-05-21",530591,20490,57460,76171,297864,190605,42082,110124,28841],["2024-05-28",485430,18542,59186,69148,289454,174444,25616,112293,24536],["2024-06-04",447488,15962,55848,56738,282783,172560,20261,112006,27003],["2024-06-11",436857,15922,56729,55474,275178,168424,15459,108345,27384],["2024-06-18",444345,15030,57588,55910,281082,177639,17018,109508,27045],["2024-06-25",452190,15601,58204,58751,287636,174756,16554,110129,22102],["2024-07-02",454730,14424,59169,59925,279979,167688,16873,112429,21701],["2024-07-09",516324,14031,66422,62183,290421,181982,24515,121061,23753],["2024-07-16",579862,23789,84107,62675,311661,216502,31970,133325,32833],["2024-07-23",572306,15685,69900,58598,305308,197802,34942,143798,33584],["2024-07-30",510914,19913,64678,55083,283175,185586,33222,127778,33541],["2024-08-06",480645,16637,63782,56985,278874,180303,29517,117816,29853],["2024-08-13",505872,16717,69652,54827,294394,203844,25929,124925,35576],["2024-08-20",532867,15569,79564,53461,305972,222142,28837,133409,35461],["2024-08-27",521759,10714,79098,52822,306757,217976,17685,125354,31200],["2024-09-03",511136,11841,81470,55089,297347,212086,19996,127071,31603],["2024-09-10",511501,12568,87942,52865,284390,213645,23190,126361,34315],["2024-09-17",537627,12663,90250,45549,303089,241844,25489,127890,34179],["2024-09-24",564640,13517,93547,45705,305381,256435,37406,131137,34776],["2024-10-01",533107,12220,87446,42840,295138,247867,33405,122184,36715],["2024-10-08",520316,12830,83981,44853,277678,227596,33537,121295,37174],["2024-10-15",541232,13088,87786,43311,281271,233871,34450,123623,36610],["2024-10-22",573760,12942,95037,39452,282058,242427,37267,129386,38342],["2024-10-29",579468,12379,86999,40174,269225,234856,39683,131780,48300],["2024-11-05",558034,13066,82429,39763,253459,219687,36684,117129,44803],["2024-11-12",535981,13211,80667,36733,234859,203661,38365,112564,41409],["2024-11-19",502952,13787,84104,34758,226763,193355,38181,115999,36806],["2024-11-26",472660,14309,81389,32845,238285,203596,24306,99805,28757],["2024-12-03",462040,10967,73308,32964,256898,203580,22845,104031,25030],["2024-12-10",483346,11204,77649,33312,263738,218482,22404,105850,26342],["2024-12-17",466571,9971,82426,32522,245300,201880,18378,101098,22559],["2024-12-24",454646,9198,83987,31583,230130,186099,20602,103317,21185],["2024-12-31",458584,9983,83344,31829,229764,182128,15959,100779,19669],["2025-01-07",477043,10137,81104,32687,240366,191873,14232,99848,22578],["2025-01-14",526467,21043,95030,30150,258615,206968,11346,105600,21859],["2025-01-21",571387,20111,100717,30427,276429,226964,11095,110325,25410],["2025-01-28",577505,19532,100430,29725,272549,227871,17331,110500,21631],["2025-02-04",542004,19046,82490,21824,286555,240485,30952,116015,23040],["2025-02-11",528719,20935,81836,19501,268488,229071,34268,114695,24994],["2025-02-18",522330,22176,82595,16566,252218,222538,37209,111505,28160],["2025-02-25",512179,24007,84497,14682,242292,212694,32882,104254,22441],["2025-03-04",489270,24881,83460,16574,229110,204965,38307,98167,21564],["2025-03-11",511276,24799,82058,18459,226388,204907,37331,91265,22741],["2025-03-18",533566,23881,88261,16899,237687,220879,37045,100775,26677],["2025-03-25",511482,14682,77439,16248,232089,213505,38773,103067,28003],["2025-04-01",498746,11538,73853,24256,227002,204833,62834,123103,26668],["2025-04-08",445468,14087,66734,27128,206664,175393,44407,94440,24711],["2025-04-15",456628,14214,65819,29121,209428,168400,43546,103307,25951],["2025-04-22",465351,18110,63420,37696,194654,166360,45458,92536,38060],["2025-04-29",451868,17714,62788,34475,180162,150715,44820,89662,32239],["2025-05-06",452414,17705,62990,37106,183924,144383,42292,93062,32656],["2025-05-13",440842,17651,59184,33350,183024,144410,43183,93781,33799],["2025-05-20",448000,20202,59019,34444,193275,149149,41520,88913,32561],["2025-05-27",437538,15935,62127,39356,200751,147502,36686,86585,23217],["2025-06-03",415941,14319,62427,40187,212905,159966,36384,87016,22693],["2025-06-10",417143,13381,62746,38867,212220,160680,36589,85315,21925],["2025-06-17",441214,11066,64028,40135,224900,167646,37135,92940,22803],["2025-06-24",434958,12319,62734,40583,220728,163829,38701,92248,22372],["2025-07-01",437662,12005,61418,37260,223916,165086,34726,93545,21925],["2025-07-08",443144,13615,60427,35359,226901,164685,35743,97000,22974],["2025-07-15",448531,14716,61452,33649,237601,172657,35930,97570,21182],["2025-07-22",489423,11207,62569,33299,264274,194753,34819,117196,24092],["2025-07-29",445259,12294,60464,39149,250058,170918,36662,110323,20983],["2025-08-05",449647,21760,55777,36874,273003,186304,32317,105890,22827],["2025-08-12",446152,9324,49074,35951,259266,182337,34050,105778,24580],["2025-08-19",438541,9389,49394,39607,249567,173388,36003,101889,26684],["2025-08-26",443760,9620,51948,45622,254259,175494,33577,100273,27879],["2025-09-02",492908,8209,63511,47568,266164,196127,34625,119669,31641],["2025-09-09",509625,9864,72418,48287,259108,198907,35388,125968,27747],["2025-09-16",516221,10992,76376,46465,283452,195347,36376,131431,23992],["2025-09-23",528789,11851,79003,49618,280869,198826,38277,133982,27782],["2025-09-30",493748,10432,75829,41038,263877,184199,38972,134605,26924],["2025-10-07",485559,12169,77521,45558,243978,170587,40828,130211,28014],["2025-10-14",485788,14094,75551,51318,226728,152187,43877,126218,30612],["2025-10-21",472421,13924,71702,56832,209171,135503,43276,118348,33966],["2025-10-28",457122,12403,70597,48310,227143,138605,34446,127703,27198],["2025-11-04",450399,9805,69256,47195,224286,130688,30143,125884,24122],["2025-11-10",459997,9875,68621,43176,229253,134155,30068,131761,28779],["2025-11-18",471953,10061,68958,44947,231635,130222,32017,139334,27200],["2025-11-25",432946,9950,56642,39044,233755,136979,27670,116287,21008],["2025-12-02",418490,10094,58801,33860,240501,140143,19819,121188,23952],["2025-12-09",432569,10463,59856,34556,247742,143383,19835,125102,24764],["2025-12-16",471093,16057,60306,31970,262079,152873,20277,128047,26665],["2025-12-23",492103,17158,68442,30143,262385,160581,24311,129580,25150],["2025-12-30",481866,12958,67439,37010,257775,148642,22602,126950,21817],["2026-01-06",488116,13454,63996,37456,258949,146445,23232,127990,23571],["2026-01-13",527455,13998,65163,31166,277107,158825,24080,137358,20865],["2026-01-20",528004,18731,61020,29522,276922,163668,26224,132104,24778],["2026-01-27",488463,14609,55198,34124,241820,143321,25162,108779,21542],["2026-02-03",409694,14072,38706,40303,223447,118936,26864,95572,22040],["2026-02-10",404391,15737,34182,43244,222537,119232,27210,93576,25586],["2026-02-17",407078,13643,35041,41702,217086,123011,27118,90421,26399],["2026-02-24",420182,14800,34618,38848,219836,121233,25259,90416,27213],["2026-03-03",409789,15219,36010,39360,219152,123456,25539,90296,28068],["2026-03-10",413956,14826,34522,38318,221598,125077,26678,90368,25635],["2026-03-17",411388,15879,33713,36975,217789,130147,28104,85814,27988],["2026-03-24",403925,12761,34977,36069,217681,119562,27941,101299,24593],["2026-03-31",361409,10979,30889,30201,211931,120092,27278,87510,17122],["2026-04-07",354877,11713,31009,30165,204620,120726,30694,84642,18369],["2026-04-14",362274,13151,31681,28289,210841,125422,30281,84587,17202],["2026-04-21",365842,12633,33051,28115,210637,123681,30705,89212,18182],["2026-04-28",369530,12985,33177,28032,202653,122257,32505,89561,19742],["2026-05-05",367932,12898,32010,27319,207142,123353,29099,88461,19412],["2026-05-12",376496,11437,31639,25671,215727,127242,29227,92551,18944],["2026-05-19",379325,14800,32714,28950,202665,122894,29354,88124,21831],["2026-05-26",353489,12586,32096,29033,195289,124277,26831,76427,19613],["2026-06-02",326052,10275,30429,27505,213696,129367,17188,76729,12888],["2026-06-09",332709,10833,30133,28443,210179,126280,20417,81704,13730],["2026-06-16",339330,12191,29238,29455,219971,128043,14322,83084,16585],["2026-06-23",352167,15839,25175,27738,223806,131102,15707,85926,19982],["2026-06-30",369541,15161,32207,25821,229845,134577,14486,95042,21114],["2026-07-07",371776,14282,35268,25445,226741,134941,18780,98772,20687],["2026-07-14",383689,15840,34989,25177,220816,136905,16126,90405,24502],["2026-07-21",383368,15561,34882,24959,218837,141487,16656,83298,24219],["2026-07-28",384603,15367,35916,23661,215421,135093,15298,84529,22254],["2026-08-04",371551,15738,34594,20753,228388,139809,9043,87204,20336],["2026-08-11",400309,15716,43651,19092,243797,148634,10972,102302,22024],["2026-08-18",406260,16883,46644,18704,247361,154595,12947,102307,21766],["2026-08-25",427957,16861,51419,16656,261683,159819,15072,117340,18753]];
+
+const PALETTE = { mm:'#0FB8B0', swap:'#9333EA', prod:'#F59E0B', other:'#2F7DE0',
+                  bear:'#E0294B', long:'#17B26A', ink:'#141C26', rule:'#D7DEEE', muted:'#5C6B7A' };
+
+const GROUPS = [
+  { key:'prod',  name:'Producer / Merchant', short:'Producer',      color:PALETTE.prod,
+    desc:'ผู้ผลิต ผู้ค้า และผู้ใช้ทองคำจริง' },
+  { key:'swap',  name:'Swap Dealers',        short:'Swap Dealer',   color:PALETTE.swap,
+    desc:'สถาบันการเงินที่บริหารความเสี่ยง OTC' },
+  { key:'mm',    name:'Managed Money',       short:'Managed Money', color:PALETTE.bear,
+    desc:'กองทุนเก็งกำไร Hedge Fund และ CTA' },
+  { key:'other', name:'Other Reportables',   short:'Other Rept.',   color:PALETTE.other,
+    desc:'รายใหญ่อื่นที่ถึงเกณฑ์รายงาน' },
+];
+
+const SIGNAL_META = {
+  S1:  { name:'ขับเคลื่อนแนวโน้มขาขึ้น', color:PALETTE.mm,   tint:'rgba(15,184,176,.14)' },
+  S2:  { name:'โมเมนตัมเริ่มอ่อนแรง',    color:PALETTE.prod, tint:'rgba(245,158,11,.16)'  },
+  S3:  { name:'คลายสถานะครั้งใหญ่',      color:PALETTE.bear, tint:'rgba(224,41,75,.15)'  },
+  NONE:{ name:'ไม่มีสัญญาณเด่นชัด',      color:PALETTE.muted,tint:'transparent'          },
+};
+const DIR_META = {
+  BULLISH:{ label:'BULLISH', th:'เอียงขาขึ้น',  color:PALETTE.mm },
+  BEARISH:{ label:'BEARISH', th:'เอียงขาลง',   color:PALETTE.bear },
+  WARNING:{ label:'WARNING', th:'เฝ้าระวัง',   color:PALETTE.prod },
+  NEUTRAL:{ label:'NEUTRAL', th:'ยังไม่ชี้ทาง', color:PALETTE.muted },
+};
+const ZONE_META = {
+  LOW: { label:'โซนต่ำ',  bg:'rgba(15,184,176,.15)', color:PALETTE.mm },
+  MID: { label:'โซนกลาง', bg:'rgba(92,107,122,.16)', color:PALETTE.muted },
+  HIGH:{ label:'โซนสูง',  bg:'rgba(224,41,75,.15)',  color:PALETTE.bear },
+};
+const RULE = { z:0.75, minC:2000, upPct:0.015, highPct:80, lowPct:20, penalty:1.20 };
+
+const fmtK = n => (n>0?'+':'') + (Math.abs(n)>=1000 ? (n/1000).toFixed(1)+'k' : Math.round(n));
+const fmtN = n => Math.round(n).toLocaleString();
+const fmtD = s => new Date(s).toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'2-digit'});
+
+/** นับจำนวน "วันทำการ" ที่ข้อมูลล้าหลังวันนี้ ไม่นับเสาร์-อาทิตย์ */
+function businessDaysStale(dateStr){
+  const latest = new Date(dateStr + 'T00:00:00');
+  const now = new Date(); now.setHours(0,0,0,0);
+  const calendarDays = Math.round((now - latest) / 86400000);
+  if (calendarDays <= 0) return 0;
+  let weekends = 0;
+  for (let i = 1; i <= calendarDays; i++){
+    const d = new Date(latest); d.setDate(d.getDate() + i);
+    if (d.getDay() === 0 || d.getDay() === 6) weekends++;
+  }
+  return Math.max(0, calendarDays - weekends);
+}
+const fmtDLong = s => new Date(s).toLocaleDateString('th-TH',{day:'numeric',month:'long',year:'numeric'});
+
+// ══ กฎสัญญาณ (พอร์ตจาก signal_engine.py) ══════════════════════════
+function sig(d,z){ return Math.abs(z)>=RULE.z && Math.abs(d)>=RULE.minC; }
+
+function evaluate(w){
+  const state = w.ret4w >  RULE.upPct ? 'UP' : w.ret4w < -RULE.upPct ? 'DOWN' : 'FLAT';
+  const zone  = w.pct52 >= RULE.highPct ? 'HIGH' : w.pct52 <= RULE.lowPct ? 'LOW' : 'MID';
+
+  const s3 = zone==='HIGH' && sig(w.dMmLong,w.zMmLong) && w.dMmLong<0
+                           && sig(w.dSwapShort,w.zSwapShort) && w.dSwapShort<0;
+  const s1 = state==='UP'  && sig(w.dMmNet,w.zMmNet) && w.dMmNet>0
+                           && sig(w.dSwapNet,w.zSwapNet) && w.dSwapNet<0;
+  const s2 = (zone==='HIGH'||zone==='MID') && (state==='UP'||state==='FLAT')
+                           && sig(w.dMmNet,w.zMmNet) && w.dMmNet<0;
+
+  let code='NONE', dir='NEUTRAL', reasons=[];
+  if (s3){ code='S3'; dir='BEARISH'; reasons=[
+      [true,`ราคายังยืนระดับสูง — เปอร์เซ็นไทล์ ${w.pct52.toFixed(0)} ของ 52 สัปดาห์`],
+      [true,`Managed Money ปิด Long ${fmtK(w.dMmLong)} สัญญา`],
+      [true,`Swap Dealer ปิด Short ${fmtK(w.dSwapShort)} สัญญา`]];
+  } else if (s1){ code='S1'; dir='BULLISH'; reasons=[
+      [true,`ราคา 4 สัปดาห์ ${(w.ret4w*100).toFixed(1)}% — อยู่ในช่วงปรับขึ้น`],
+      [true,`Managed Money เพิ่ม net long ${fmtK(w.dMmNet)} สัญญา`],
+      [true,`Swap Dealer เพิ่ม net short ${fmtK(-w.dSwapNet)} สัญญา`]];
+  } else if (s2){ code='S2'; dir='WARNING'; reasons=[
+      [true,`ราคายืนเปอร์เซ็นไทล์ ${w.pct52.toFixed(0)} และยังไม่ปรับลง`],
+      [true,`Managed Money ลด net long ${fmtK(w.dMmNet)} สัญญา — แรงขับเคลื่อนหลักเริ่มถอย`]];
+  } else { reasons=[
+      [false,`ราคาอยู่เปอร์เซ็นไทล์ ${w.pct52.toFixed(0)} · ผลตอบแทน 4 สัปดาห์ ${(w.ret4w*100).toFixed(1)}%`],
+      [false,`Δ Managed Money ${fmtK(w.dMmNet)} สัญญา ยังไม่ถึงเกณฑ์นัยสำคัญ`],
+      [false,`Δ Swap Dealer ${fmtK(w.dSwapNet)} สัญญา ยังไม่ถึงเกณฑ์นัยสำคัญ`]];
+  }
+
+  const zPrice = Math.max(-3, Math.min(3, w.ret4w/0.02));
+  let raw = 0.50*w.zMmNet + 0.25*(-w.zSwapNet) + 0.10*(-w.zProdShort) + 0.15*zPrice;
+  if (s3) raw -= RULE.penalty * (Math.abs(w.zMmLong)+Math.abs(w.zSwapShort))/2;
+  const bias = Math.max(-100, Math.min(100, Math.round(raw*35)));
+
+  const passed = reasons.filter(r=>r[0]).length;
+  const meanZ = (Math.abs(w.zMmNet)+Math.abs(w.zSwapNet)+Math.abs(w.zMmLong))/3;
+  const conf = Math.round(Math.min(100,
+      40*passed/reasons.length + 30*Math.min(1, meanZ/2) + 30*Math.min(1,(w.streak||1)/3)));
+
+  return { code, dir, bias, conf, zone, state, reasons };
+}
+
+// ══ เตรียมข้อมูล ══════════════════════════════════════════════════
+function embedToRows(){
+  return COT_EMBED.map(a => ({
+    date:a[0], oi:a[1], pdL:a[2], pdS:a[3], swL:a[4], swS:a[5],
+    mmL:a[6], mmS:a[7], otL:a[8], otS:a[9],
+  }));
+}
+
+/** เติม net, Δ รายสัปดาห์, และ z-score ให้ทุกแถว */
+function deriveCot(rows){
+  const std = arr => { if(arr.length<2) return 0;
+    const m = arr.reduce((a,b)=>a+b,0)/arr.length;
+    return Math.sqrt(arr.reduce((a,b)=>a+(b-m)**2,0)/(arr.length-1)); };
+
+  rows.forEach((r,i)=>{
+    r.mmNet = r.mmL - r.mmS;  r.swapNet = r.swL - r.swS;
+    r.pdNet = r.pdL - r.pdS;  r.otNet   = r.otL - r.otS;
+    const p = rows[i-1];
+    const dd = (a,b) => p ? a-b : 0;
+    r.dOi        = dd(r.oi,    p&&p.oi);
+    r.dPdLong    = dd(r.pdL,   p&&p.pdL);   r.dProdShort = dd(r.pdS, p&&p.pdS);
+    r.dSwapLong  = dd(r.swL,   p&&p.swL);   r.dSwapShort = dd(r.swS, p&&p.swS);
+    r.dMmLong    = dd(r.mmL,   p&&p.mmL);   r.dMmShort   = dd(r.mmS, p&&p.mmS);
+    r.dOtLong    = dd(r.otL,   p&&p.otL);   r.dOtShort   = dd(r.otS, p&&p.otS);
+    r.dMmNet     = dd(r.mmNet, p&&p.mmNet);
+    r.dSwapNet   = dd(r.swapNet, p&&p.swapNet);
+    r.dPdNet     = dd(r.pdNet, p&&p.pdNet);
+    r.dOtNet     = dd(r.otNet, p&&p.otNet);
+  });
+
+  rows.forEach((r,i)=>{
+    const win = rows.slice(Math.max(0,i-51), i+1);
+    const z = k => { const s = std(win.map(x=>x[k])); return s ? r[k]/s : 0; };
+    r.zMmNet=z('dMmNet'); r.zMmLong=z('dMmLong'); r.zSwapNet=z('dSwapNet');
+    r.zSwapShort=z('dSwapShort'); r.zProdShort=z('dProdShort');
+  });
+  return rows;
+}
+
+/** ผูกราคารายสัปดาห์เข้ากับแถว COT แล้วประเมินสัญญาณ */
+function attachPriceAndSignal(rows, weeklyPrice){
+  rows.forEach(r => { r.px = weeklyPrice[r.date] ?? null; });
+
+  const withPx = rows.filter(r => r.px != null);
+  withPx.forEach((r,i)=>{
+    const p4 = withPx[i-4];
+    r.ret4w = p4 ? r.px/p4.px - 1 : 0;
+    const win = withPx.slice(Math.max(0,i-51), i+1).map(x=>x.px);
+    r.pct52 = win.filter(v=>v<r.px).length / win.length * 100;
+  });
+
+  let streak = 1, prev = null;
+  rows.forEach(r=>{
+    if (r.px == null){ r.sig='NONE'; r.dir='NEUTRAL'; r.bias=0; r.conf=0;
+                        r.zone='MID'; r.state='FLAT'; r.reasons=[]; return; }
+    r.streak = streak;
+    const res = evaluate(r);
+    Object.assign(r, { sig:res.code, dir:res.dir, bias:res.bias, conf:res.conf,
+                        zone:res.zone, state:res.state, reasons:res.reasons });
+    streak = (res.code === prev && res.code !== 'NONE') ? streak+1 : 1;
+    prev = res.code;
+  });
+  return rows;
+}
+
+/** แปลงราคารายวันเป็นราคาปิดวันอังคารที่ตรงกับสัปดาห์ COT */
+function snapWeekly(daily, cotDates){
+  const map = {};
+  if (!daily.length) return map;
+  const sorted = [...daily].sort((a,b)=> a.d < b.d ? -1 : 1);
+  let j = 0;
+  for (const cd of cotDates){
+    while (j+1 < sorted.length && sorted[j+1].d <= cd) j++;
+    if (sorted[j] && sorted[j].d <= cd) map[cd] = sorted[j].px;
+  }
+  return map;
+}
+
+// ══ สถานะรวมของหน้า ═══════════════════════════════════════════════
+let COT = [], DAILY = [], charts = {};
+function destroyChart(k){ if (charts[k]) { charts[k].destroy(); delete charts[k]; } }
+
+const BASE_FONT = { family:'IBM Plex Sans Thai', size:11 };
+const MONO_FONT = { family:'IBM Plex Mono', size:10 };
+const TOOLTIP = { backgroundColor:'#141C26', titleFont:{family:'IBM Plex Mono'},
+                  bodyFont:{family:'IBM Plex Sans Thai'} };
+
+// ══ เรนเดอร์: KPI ═════════════════════════════════════════════════
+function renderKPI(r){
+  const meta = SIGNAL_META[r.sig] || SIGNAL_META.NONE;
+  const dir  = DIR_META[r.dir]   || DIR_META.NEUTRAL;
+  const zone = ZONE_META[r.zone] || ZONE_META.MID;
+
+  const sc = document.getElementById('signalCode');
+  sc.textContent = r.sig === 'NONE' ? 'NONE' : r.sig;
+  sc.style.color = meta.color;
+  document.getElementById('signalName').textContent = meta.name;
+
+  const dv = document.getElementById('dirVal');
+  dv.textContent = dir.label; dv.style.color = dir.color;
+  document.getElementById('dirName').textContent = dir.th;
+
+  document.getElementById('biasVal').textContent = (r.bias>0?'+':'') + r.bias;
+  document.getElementById('biasVal').style.color =
+    r.bias > 0 ? PALETTE.mm : r.bias < 0 ? PALETTE.bear : PALETTE.ink;
+  document.getElementById('biasMarker').style.left = `${(r.bias+100)/2}%`;
+  document.getElementById('biasMarker').style.background = meta.color;
+
+  document.getElementById('confVal').textContent = r.conf;
+  const ring = document.getElementById('confRing');
+  ring.style.setProperty('--pct', r.conf);
+  ring.style.setProperty('--ring-color', meta.color);
+  document.getElementById('confLabel').textContent =
+    r.conf >= 70 ? 'สูง — เงื่อนไขเข้าครบและต่อเนื่อง'
+    : r.conf >= 40 ? 'ปานกลาง'
+    : 'ต่ำ — ยังไม่ควรใช้ตัดสินใจเดี่ยว';
+
+  const latestDaily = DAILY.length ? DAILY[DAILY.length - 1] : null;
+  document.getElementById('priceVal').textContent = latestDaily ? fmtN(latestDaily.px) : '—';
+  document.getElementById('priceValDate').textContent = latestDaily
+    ? `ปิดล่าสุด ${fmtD(latestDaily.d)} (GC=F)` : 'ยังไม่มีข้อมูลราคา';
+
+  const staleEl = document.getElementById('priceStale');
+  if (latestDaily){
+    const staleDays = businessDaysStale(latestDaily.d);
+    if (staleDays >= 1){
+      staleEl.textContent = `⚠ ข้อมูลล้าไป ${staleDays} วันทำการ — รัน python run_ingest.py เพื่ออัปเดต`;
+      staleEl.style.color = PALETTE.bear;
+      staleEl.classList.remove('hidden');
+    } else {
+      staleEl.classList.add('hidden');
+    }
+  } else {
+    staleEl.classList.add('hidden');
+  }
+
+  const zb = document.getElementById('priceZoneBadge');
+  zb.textContent = zone.label; zb.style.background = zone.bg; zb.style.color = zone.color;
+  document.getElementById('priceStateTxt').textContent =
+    r.state === 'UP' ? '▲ แนวโน้มขึ้น' : r.state === 'DOWN' ? '▼ แนวโน้มลง' : '— ทรงตัว';
+
+  document.getElementById('signalCtx').textContent = r.px != null
+    ? `ราคาอ้างอิงสัปดาห์สัญญาณ (${fmtD(r.date)}) ${fmtN(r.px)} · เปอร์เซ็นไทล์ ${(r.pct52||0).toFixed(0)} ของ 52 สัปดาห์`
+    : 'ยังไม่มีราคาสำหรับสัปดาห์นี้';
+  document.getElementById('rationale').innerHTML = (r.reasons||[]).map(([ok,t]) =>
+    `<li class="flex gap-2 ${ok?'':'text-muted'}">
+       <span class="num mt-px" style="color:${ok?meta.color:'#8C99A6'}">${ok?'✓':'·'}</span>
+       <span>${t}</span></li>`).join('') || '<li class="text-muted">—</li>';
+
+  document.getElementById('asOf').textContent = fmtDLong(r.date);
+  const pub = new Date(r.date); pub.setDate(pub.getDate()+3);
+  document.getElementById('pubOn').textContent = fmtD(pub);
+}
+
+// ══ เรนเดอร์: แถบ 52 สัปดาห์ ══════════════════════════════════════
+function renderStrip(rows){
+  const strip = document.getElementById('strip');
+  const win = rows.slice(-52);
+  const cap = z => Math.min(1, Math.abs(z)/2.5) * 46;
+
+  strip.innerHTML = win.map((r,i) => {
+    const meta = SIGNAL_META[r.sig] || SIGNAL_META.NONE;
+    const up = r.dMmNet >= 0, dn = r.dSwapNet >= 0;
+    return `<div class="week-cell relative flex-1 cursor-crosshair" data-i="${i}" style="background:${meta.tint}">
+      <div class="absolute inset-x-0 top-1/2 h-px" style="background:${PALETTE.rule}"></div>
+      <div class="absolute inset-x-[1px]" style="${up?'bottom:50%':'top:50%'};height:${cap(r.zMmNet)}%;
+        background:${up?PALETTE.mm:PALETTE.bear};opacity:.9"></div>
+      <div class="absolute inset-x-[1px]" style="${dn?'bottom:50%':'top:50%'};height:${cap(r.zSwapNet)}%;
+        background:${PALETTE.swap};opacity:.45"></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('stripStart').textContent = fmtD(win[0].date);
+  document.getElementById('stripEnd').textContent = fmtD(win.at(-1).date);
+
+  const tip = document.getElementById('stripTip');
+  strip.querySelectorAll('.week-cell').forEach(cell => {
+    cell.addEventListener('mouseenter', () => {
+      const r = win[+cell.dataset.i];
+      tip.innerHTML = `<span class="num">${fmtD(r.date)}</span>` +
+        (r.px!=null ? ` · ราคา <span class="num">${fmtN(r.px)}</span>` : '') +
+        ` · Δ MM <span class="num" style="color:${PALETTE.mm}">${fmtK(r.dMmNet)}</span>` +
+        ` · Δ Swap <span class="num" style="color:${PALETTE.swap}">${fmtK(r.dSwapNet)}</span>` +
+        ` · ${r.sig==='NONE'?'ไม่มีสัญญาณ':r.sig+' '+SIGNAL_META[r.sig].name}`;
+    });
+  });
+  strip.addEventListener('mouseleave', () => {
+    tip.textContent = 'ชี้ที่ช่องใดก็ได้เพื่อดูตัวเลขของสัปดาห์นั้น';
+  });
+}
+
+// ══ เรนเดอร์: ราคา 10 ปี ═══════════════════════════════════════════
+function renderPrice(years){
+  const empty = document.getElementById('priceEmpty');
+  const statsEl = document.getElementById('priceStats');
+  destroyChart('price');
+
+  if (!DAILY.length){
+    empty.classList.remove('hidden'); empty.classList.add('flex');
+    empty.innerHTML = 'ยังไม่มีข้อมูลราคา — ต้องเชื่อมต่อ backend<br>' +
+      '<span class="text-[11px]">ราคามาจาก Yahoo Finance ผ่าน API ปลายทาง <code>/api/v1/prices/daily</code></span>';
+    statsEl.innerHTML = '';
+    return;
+  }
+  empty.classList.add('hidden'); empty.classList.remove('flex');
+
+  const cutoff = new Date();
+  cutoff.setFullYear(cutoff.getFullYear() - years);
+  const cut = cutoff.toISOString().slice(0,10);
+  const win = DAILY.filter(p => p.d >= cut);
+  if (!win.length) return;
+
+  // ลดจำนวนจุดลงเพื่อให้กราฟลื่นเมื่อดูช่วงยาว
+  const step = Math.max(1, Math.ceil(win.length / 700));
+  const pts = win.filter((_,i) => i % step === 0 || i === win.length-1);
+
+  charts.price = new Chart(document.getElementById('priceChart'), {
+    type:'line',
+    data:{ labels: pts.map(p=>p.d),
+      datasets:[{ label:'ราคาทองคำ (USD/oz)', data: pts.map(p=>p.px),
+        borderColor:PALETTE.ink, borderWidth:1.6, pointRadius:0, tension:.15,
+        fill:true, backgroundColor:'rgba(20,28,38,.06)' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ display:false }, tooltip:TOOLTIP },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxTicksLimit:10, font:MONO_FONT,
+             callback(v){ const s=this.getLabelForValue(v); return s ? s.slice(0,7) : s; } } },
+        y:{ grid:{ color:'rgba(215,222,238,.6)' }, ticks:{ font:MONO_FONT },
+            title:{ display:true, text:'USD / ounce', font:BASE_FONT } },
+      } },
+  });
+
+  const first = win[0].px, last = win.at(-1).px;
+  const hi = Math.max(...win.map(p=>p.px)), lo = Math.min(...win.map(p=>p.px));
+  const chg = (last/first - 1) * 100;
+  statsEl.innerHTML = [
+    ['ล่าสุด', fmtN(last), PALETTE.ink],
+    [`เปลี่ยนแปลง ${years} ปี`, (chg>0?'+':'')+chg.toFixed(1)+'%', chg>=0?PALETTE.mm:PALETTE.bear],
+    ['สูงสุดในช่วง', fmtN(hi), PALETTE.muted],
+    ['ต่ำสุดในช่วง', fmtN(lo), PALETTE.muted],
+  ].map(([k,v,c]) => `<div class="rounded-lg bg-paper px-3 py-2">
+      <p class="text-[10px] text-muted">${k}</p>
+      <p class="num mt-0.5 text-sm font-semibold" style="color:${c}">${v}</p></div>`).join('');
+}
+
+// ══ เรนเดอร์: Open Interest ═══════════════════════════════════════
+function renderOI(weeks){
+  destroyChart('oi');
+  const win = COT.slice(-weeks);
+  const step = Math.max(1, Math.ceil(win.length / 160));
+  const pts = win.filter((_,i)=> i % step === 0 || i === win.length-1);
+
+  charts.oi = new Chart(document.getElementById('oiChart'), {
+    data:{ labels: pts.map(r=>fmtD(r.date)),
+      datasets:[
+        { type:'line', label:'Open Interest', data:pts.map(r=>r.oi), yAxisID:'y',
+          borderColor:PALETTE.ink, borderWidth:1.7, pointRadius:0, tension:.2, order:0 },
+        { type:'bar', label:'Δ สัปดาห์', data:pts.map(r=>r.dOi), yAxisID:'y1',
+          backgroundColor:pts.map(r=> r.dOi>=0 ? 'rgba(15,184,176,.55)' : 'rgba(224,41,75,.55)'), order:2 },
+      ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ labels:{ boxWidth:10, boxHeight:10, font:BASE_FONT } }, tooltip:TOOLTIP },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxTicksLimit:9, font:MONO_FONT } },
+        y:{ position:'left', grid:{ color:'rgba(215,222,238,.6)' }, ticks:{ font:MONO_FONT },
+            title:{ display:true, text:'สัญญาคงค้าง', font:BASE_FONT } },
+        y1:{ position:'right', grid:{ display:false }, ticks:{ font:MONO_FONT },
+             title:{ display:true, text:'Δ สัปดาห์', font:BASE_FONT } },
+      } },
+  });
+
+  const last = COT.at(-1), prev = COT.at(-2);
+  const w52 = COT.slice(-52).map(r=>r.oi);
+  const pct = w52.filter(v=>v<last.oi).length / w52.length * 100;
+
+  destroyChart('oiMini');
+  const w52dates = COT.slice(-52).map(r=>r.date);
+  charts.oiMini = new Chart(document.getElementById('oiMiniChart'), {
+    type:'line',
+    data:{ labels: w52dates,
+      datasets:[{ data:w52, borderColor:PALETTE.ink, borderWidth:1.5, pointRadius:0,
+                  tension:.25, fill:true, backgroundColor:'rgba(20,28,38,.06)' }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false },
+                tooltip:{ ...TOOLTIP, callbacks:{
+                  title: (items) => fmtD(w52dates[items[0].dataIndex]),
+                  label: (item) => `OI ${fmtN(item.raw)}` } } },
+      scales:{ x:{ display:false }, y:{ display:false } },
+      elements:{ point:{ radius:0 } },
+    },
+  });
+
+  document.getElementById('oiStats').innerHTML = `
+    <div>
+      <p class="text-[10px] text-muted eyebrow">ยอดคงค้างล่าสุด</p>
+      <p class="num text-2xl font-bold">${fmtN(last.oi)}</p>
+      <p class="num mt-0.5 text-xs" style="color:${last.dOi>=0?PALETTE.mm:PALETTE.bear}">
+        ${fmtK(last.dOi)} จากสัปดาห์ก่อน (${prev?((last.oi/prev.oi-1)*100).toFixed(1):'0'}%)</p>
+    </div>
+    <div class="border-t border-rule pt-3">
+      <p class="text-[10px] text-muted eyebrow">ตำแหน่งในกรอบ 52 สัปดาห์</p>
+      <div class="mt-1.5 h-1.5 rounded-full bg-rule">
+        <div class="h-1.5 rounded-full" style="width:${pct}%;background:${PALETTE.ink}"></div>
+      </div>
+      <p class="num mt-1 text-xs text-muted">เปอร์เซ็นไทล์ ${pct.toFixed(0)}</p>
+    </div>
+    <div class="border-t border-rule pt-3">
+      <p class="text-[10px] text-muted eyebrow">ค่าเฉลี่ย 52 สัปดาห์</p>
+      <p class="num text-sm font-semibold">${fmtN(w52.reduce((a,b)=>a+b,0)/w52.length)}</p>
+    </div>`;
+}
+
+// ══ เรนเดอร์: 4 กลุ่ม ═════════════════════════════════════════════
+const G = {
+  prod:  { L:'pdL', S:'pdS', net:'pdNet', dL:'dPdLong',   dS:'dProdShort', dNet:'dPdNet' },
+  swap:  { L:'swL', S:'swS', net:'swapNet', dL:'dSwapLong', dS:'dSwapShort', dNet:'dSwapNet' },
+  mm:    { L:'mmL', S:'mmS', net:'mmNet', dL:'dMmLong',   dS:'dMmShort',   dNet:'dMmNet' },
+  other: { L:'otL', S:'otS', net:'otNet', dL:'dOtLong',   dS:'dOtShort',   dNet:'dOtNet' },
+};
+
+function deltaChip(v){
+  const c = v > 0 ? PALETTE.mm : v < 0 ? PALETTE.bear : PALETTE.muted;
+  return `<span class="num text-[11px]" style="color:${c}">${fmtK(v)}</span>`;
+}
+
+function renderGroupCards(){
+  const r = COT.at(-1);
+  document.getElementById('groupCards').innerHTML = GROUPS.map(g => {
+    const k = G[g.key];
+    const L = r[k.L], S = r[k.S], net = r[k.net];
+    const tot = L + S || 1;
+    return `<div class="rounded-lg border border-rule p-3">
+      <div class="flex items-center gap-1.5">
+        <span class="h-2 w-2 rounded-sm" style="background:${g.color}"></span>
+        <p class="text-xs font-semibold">${g.name}</p>
+      </div>
+      <p class="mt-0.5 text-[10px] leading-snug text-muted">${g.desc}</p>
+
+      <div class="mt-2.5 flex gap-3">
+        <div class="flex-1">
+          <p class="text-[10px] text-muted">Long</p>
+          <p class="num text-sm font-semibold">${fmtN(L)}</p>
+          <p>${deltaChip(r[k.dL])}</p>
+        </div>
+        <div class="flex-1">
+          <p class="text-[10px] text-muted">Short</p>
+          <p class="num text-sm font-semibold">${fmtN(S)}</p>
+          <p>${deltaChip(r[k.dS])}</p>
+        </div>
+      </div>
+
+      <div class="mt-2 flex h-1.5 overflow-hidden rounded-sm bg-rule" title="สัดส่วน Long เทียบ Short">
+        <div style="width:${L/tot*100}%;background:${PALETTE.long}"></div>
+        <div style="width:${S/tot*100}%;background:${PALETTE.bear}"></div>
+      </div>
+
+      <div class="mt-2 border-t border-rule pt-2">
+        <p class="text-[10px] text-muted">Net (Long − Short)</p>
+        <p class="num text-sm font-bold" style="color:${net>=0?g.color:PALETTE.bear}">
+          ${net>=0?'+':''}${fmtN(net)}</p>
+        <p>${deltaChip(r[k.dNet])}</p>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderGroupChart(weeks){
+  destroyChart('group');
+  const win = COT.slice(-weeks);
+  const step = Math.max(1, Math.ceil(win.length / 200));
+  const pts = win.filter((_,i)=> i % step === 0 || i === win.length-1);
+
+  charts.group = new Chart(document.getElementById('groupChart'), {
+    type:'line',
+    data:{ labels: pts.map(r=>fmtD(r.date)),
+      datasets: GROUPS.map(g => ({
+        label:g.short, data:pts.map(r=>r[G[g.key].net]),
+        borderColor:g.color, borderWidth:1.6, pointRadius:0, tension:.2,
+      })) },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ labels:{ boxWidth:10, boxHeight:10, font:BASE_FONT } }, tooltip:TOOLTIP },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxTicksLimit:9, font:MONO_FONT } },
+        y:{ grid:{ color:'rgba(215,222,238,.6)' }, ticks:{ font:MONO_FONT },
+            title:{ display:true, text:'สถานะสุทธิ (สัญญา)', font:BASE_FONT } },
+      } },
+  });
+}
+
+function renderGroupTable(){
+  document.getElementById('grpTableBody').innerHTML = COT.slice(-8).reverse().map(r => {
+    const cell = (g) => {
+      const k = G[g.key];
+      return `<td class="py-2 text-right">
+        <span class="num">${fmtN(r[k.L])}</span> <span class="text-[10px]" style="color:${PALETTE.muted}">/</span>
+        <span class="num">${fmtN(r[k.S])}</span><br>
+        <span class="text-[10px]">${deltaChip(r[k.dL])} <span class="text-muted">/</span> ${deltaChip(r[k.dS])}</span>
+      </td>`;
+    };
+    return `<tr>
+      <td class="num py-2 text-left">${fmtD(r.date)}</td>
+      <td class="py-2 text-right"><span class="num">${fmtN(r.oi)}</span><br>${deltaChip(r.dOi)}</td>
+      ${GROUPS.map(cell).join('')}
+    </tr>`;
+  }).join('');
+}
+
+function renderHistory(){
+  document.getElementById('histBody').innerHTML = COT.slice(-14).reverse().map(r => {
+    const meta = SIGNAL_META[r.sig] || SIGNAL_META.NONE;
+    return `<tr>
+      <td class="num py-1.5">${fmtD(r.date)}</td>
+      <td class="py-1.5">
+        <span class="num rounded px-1.5 py-0.5 text-xs font-semibold"
+              style="background:${meta.tint};color:${meta.color}">${r.sig==='NONE'?'—':r.sig}</span>
+        <span class="ml-1.5 text-xs text-muted">${r.sig==='NONE'?'':meta.name}</span></td>
+      <td class="num py-1.5 text-right">${r.px!=null?fmtN(r.px):'—'}</td>
+      <td class="num py-1.5 text-right" style="color:${r.dMmNet>=0?PALETTE.mm:PALETTE.bear}">${fmtK(r.dMmNet)}</td>
+      <td class="num py-1.5 text-right font-medium">${r.bias>0?'+':''}${r.bias}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ══ เรนเดอร์: Gold Option ═══════════════════════════════════════
+function sentimentColor(label){
+  if (!label) return PALETTE.muted;
+  const s = label.toLowerCase();
+  if (s.includes('extreme bullish')) return PALETTE.long;
+  if (s.includes('strong bullish'))  return PALETTE.mm;
+  if (s.includes('bullish'))         return PALETTE.mm;
+  if (s.includes('extreme bearish') || s.includes('strong bearish')) return PALETTE.bear;
+  if (s.includes('bearish') || s.includes('hedging')) return PALETTE.bear;
+  return PALETTE.muted;                                 // neutral/balanced
+}
+
+function renderGoldOption(opt){
+  const empty = document.getElementById('optionEmpty');
+  const content = document.getElementById('optionContent');
+
+  if (!opt || !opt.has_data){
+    empty.classList.remove('hidden');
+    content.classList.add('hidden');
+    return;
+  }
+  empty.classList.add('hidden');
+  content.classList.remove('hidden');
+
+  const ov = opt.overview || {};
+  const macroColor = sentimentColor(ov.macro_sentiment);
+  const macroEl = document.getElementById('optMacroSentiment');
+  macroEl.textContent = ov.macro_sentiment || '—';
+  macroEl.style.color = macroColor;
+
+  document.getElementById('optCallOi').textContent = fmtN(ov.call_oi_total || 0);
+  document.getElementById('optCallOi').style.color = PALETTE.long;
+  document.getElementById('optPutOi').textContent = fmtN(ov.put_oi_total || 0);
+  document.getElementById('optPutOi').style.color = PALETTE.bear;
+  document.getElementById('optRatio').textContent =
+    ov.oi_pc_ratio != null ? (+ov.oi_pc_ratio).toFixed(2) : '—';
+  document.getElementById('optDate').textContent = `ข้อมูล ณ ${fmtD(opt.trade_date)} · ที่มา: Gold Options Analysis Template`;
+}
+
+// ══ เรนเดอร์: คาดการณ์ราคา (ARIMAX) ═══════════════════════════════
+let fcChart = null;
+
+async function loadForecast(days){
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/forecast/price?days=${days}`);
+    if (!res.ok) throw new Error(res.status);
+    return await res.json();
+  } catch { return null; }
+}
+
+function renderForecast(fc){
+  const empty = document.getElementById('forecastEmpty');
+  const content = document.getElementById('forecastContent');
+
+  if (!fc || !fc.has_data){
+    empty.classList.remove('hidden');
+    content.classList.add('hidden');
+    empty.textContent = fc && fc.reason
+      ? fc.reason
+      : 'ยังไม่สามารถพยากรณ์ได้ — ตรวจว่าเชื่อมต่อ backend และมีข้อมูลราคา/COT เพียงพอ';
+    return;
+  }
+  empty.classList.add('hidden');
+  content.classList.remove('hidden');
+
+  document.getElementById('fcLastPrice').textContent = fmtN(fc.last_actual_price);
+  document.getElementById('fcLastDate').textContent = fmtD(fc.last_actual_date);
+
+  const points = fc.forecast || [];
+  const endPoint = points.at(-1);
+  document.getElementById('fcEndPrice').textContent = endPoint ? fmtN(endPoint.predicted) : '—';
+  if (endPoint){
+    const chg = (endPoint.predicted / fc.last_actual_price - 1) * 100;
+    const chgEl = document.getElementById('fcEndChange');
+    chgEl.textContent = `${chg>=0?'+':''}${chg.toFixed(1)}% ในอีก ${fc.horizon_days} วันทำการ`;
+    chgEl.style.color = chg >= 0 ? PALETTE.long : PALETTE.bear;
+  }
+
+  document.getElementById('fcModel').textContent = fc.model || '—';
+  document.getElementById('fcObs').textContent =
+    `ใช้ข้อมูล ${fmtN(fc.n_observations)} วันในการ fit · exogenous: ${(fc.exog_used||[]).join(', ') || 'ไม่มี'}`;
+  document.getElementById('fcCaveat').textContent = fc.caveat || '';
+
+  document.getElementById('fcTableBody').innerHTML = points.map(p => `
+    <tr>
+      <td class="num py-1.5">${fmtD(p.date)}</td>
+      <td class="num py-1.5 text-right font-medium">${fmtN(p.predicted)}</td>
+      <td class="num py-1.5 text-right text-muted">${fmtN(p.ci_lower)} – ${fmtN(p.ci_upper)}</td>
+    </tr>`).join('');
+
+  // กราฟ: ราคาจริงย้อนหลัง (เส้นทึบ) ต่อด้วยเส้นพยากรณ์ (เส้นประ) + แถบความเชื่อมั่น
+  const histTail = DAILY.slice(-60);
+  const labels = [...histTail.map(p=>p.d), ...points.map(p=>p.date)];
+  const histData = histTail.map(p=>p.px);
+  const fcData = new Array(histTail.length - 1).fill(null)
+    .concat([histData.at(-1)], points.map(p=>p.predicted));
+  const ciLower = new Array(histTail.length).fill(null).concat(points.map(p=>p.ci_lower));
+  const ciUpper = new Array(histTail.length).fill(null).concat(points.map(p=>p.ci_upper));
+
+  if (fcChart) fcChart.destroy();
+  fcChart = new Chart(document.getElementById('forecastChart'), {
+    type:'line',
+    data:{ labels,
+      datasets:[
+        { label:'ราคาจริง', data:[...histData, ...new Array(points.length).fill(null)],
+          borderColor:PALETTE.ink, borderWidth:1.6, pointRadius:0, tension:.15 },
+        { label:'ช่วงความเชื่อมั่น 80%', data:ciUpper, borderWidth:0, pointRadius:0,
+          backgroundColor:'rgba(15,184,176,.12)', fill:'+1' },
+        { label:'ขอบล่าง', data:ciLower, borderWidth:0, pointRadius:0,
+          backgroundColor:'rgba(15,184,176,.12)', fill:false },
+        { label:'พยากรณ์', data:fcData, borderColor:PALETTE.mm, borderWidth:1.8,
+          borderDash:[5,4], pointRadius:0, tension:.15 },
+      ] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{ legend:{ labels:{ boxWidth:10, boxHeight:10, font:BASE_FONT,
+                filter:(item)=> item.text !== 'ขอบล่าง' } }, tooltip:TOOLTIP },
+      scales:{
+        x:{ grid:{display:false}, ticks:{ maxTicksLimit:8, font:MONO_FONT } },
+        y:{ grid:{ color:'rgba(215,222,238,.6)' }, ticks:{ font:MONO_FONT },
+            title:{ display:true, text:'USD/oz', font:BASE_FONT } },
+      } },
+  });
+}
+
+// ══ ปุ่มเลือกช่วงเวลา ═════════════════════════════════════════════
+function wireRange(sel, attr, defVal, fn){
+  const btns = Array.from(document.querySelectorAll(sel));
+  const paint = active => btns.forEach(b => {
+    const on = b === active;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.className = on
+      ? `${sel.slice(1)} num rounded bg-ink px-2.5 py-1 text-xs text-paper ring-1 ring-ink`
+      : `${sel.slice(1)} num rounded px-2.5 py-1 text-xs ring-1 ring-rule`;
+  });
+  btns.forEach(b => b.addEventListener('click', () => { paint(b); fn(+b.dataset[attr]); }));
+  const def = btns.find(b => +b.dataset[attr] === defVal) || btns[0];
+  paint(def);
+  return +def.dataset[attr];
+}
+
+// ══ sidebar ═══════════════════════════════════════════════════════
+const sidebar = document.getElementById('sidebar');
+const backdrop = document.getElementById('sidebarBackdrop');
+const openSidebar = () => { sidebar.classList.remove('-translate-x-full'); backdrop.classList.remove('hidden'); };
+const closeSidebar = () => { sidebar.classList.add('-translate-x-full'); backdrop.classList.add('hidden'); };
+document.getElementById('sidebarOpen').addEventListener('click', openSidebar);
+document.getElementById('sidebarClose').addEventListener('click', closeSidebar);
+backdrop.addEventListener('click', closeSidebar);
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSidebar(); });
+document.querySelectorAll('.navlink').forEach(a => a.addEventListener('click', closeSidebar));
+
+if (typeof IntersectionObserver !== 'undefined'){
+  const navlinks = Array.from(document.querySelectorAll('.navlink'));
+  const spy = new IntersectionObserver(entries => {
+    entries.forEach(en => { if (!en.isIntersecting) return;
+      navlinks.forEach(a => a.classList.toggle('active', a.getAttribute('href') === '#'+en.target.id)); });
+  }, { rootMargin:'-40% 0px -55% 0px' });
+  ['overview','price','forecast','oi','groups','gold-option','history'].forEach(id => {
+    const el = document.getElementById(id); if (el) spy.observe(el);
+  });
+}
+
+// ══ modal: ความหมายสัญญาณ ════════════════════════════════════════
+const SIGNAL_GUIDE = [
+  { code:'S1', color:PALETTE.mm, name:'ขับเคลื่อนแนวโน้มขาขึ้น', sub:'Bullish Momentum Trigger',
+    cond:[
+      'ราคาทองคำอยู่ในช่วงกำลังปรับตัวสูงขึ้น',
+      'Managed Money เพิ่มสถานะซื้อสุทธิอย่างมีนัยสำคัญ (Δ Net Long > 0)',
+      'Swap Dealer เพิ่มสถานะขายสุทธิสวนทางขึ้นมา (Δ Net Short > 0)',
+    ],
+    text:'กองทุนเก็งกำไรกำลังสร้างแรงซื้อจริงตามทิศทางตลาด ส่งผลให้โมเมนตัมราคาขึ้นมีความแข็งแกร่ง โดยมี Swap Dealer เข้ามารับความเสี่ยงอีกฝั่งหนึ่งของบัญชีดุลยภาพ' },
+
+  { code:'S2', color:PALETTE.prod, name:'โมเมนตัมเริ่มอ่อนแรง', sub:'Momentum Weakening Warning',
+    cond:[
+      'ราคาทองคำยังทรงตัวในระดับสูงหรือขยับขึ้นช้าลง',
+      'Managed Money เริ่มลดสถานะฝั่งซื้อลงอย่างมีนัยสำคัญ (Δ Net Long < 0)',
+    ],
+    text:'แรงขับเคลื่อนราคาหลักเริ่มหมดกำลัง แม้ราคาจะยังไม่ปรับตัวลดลงทันที แต่การถอยของ Managed Money ส่งสัญญาณเตือนว่าโมเมนตัมขาขึ้นมีโอกาสสิ้นสุดหรือเกิดการพักฐานในเร็ว ๆ นี้' },
+
+  { code:'S3', color:PALETTE.bear, name:'คลายสถานะครั้งใหญ่', sub:'Unwinding / Reversal Signal',
+    cond:[
+      'ราคาทองคำยังคงยืนอยู่ในระดับสูง (High Price Area)',
+      'Managed Money เริ่มทยอยปิด/ลดสถานะ Long อย่างเห็นได้ชัด',
+      'Swap Dealer เริ่มทยอยปิด/ลดสถานะ Short พร้อมกัน',
+    ],
+    text:'สัญญาณ "การคลายสถานะ (Unwind)" — โครงสร้างซื้อขายหลักของตลาดกำลังถูกปิดลงทั้งสองฝั่งพร้อมกัน เป็นสัญญาณบ่งชี้ที่ทรงพลังว่าแนวโน้มราคาทองมีโอกาสกลับตัวลงหรือเกิดการปรับฐานครั้งใหญ่ น่าเชื่อถือสูงกว่าการดูระดับยอดคงเหลือของ Swap Dealer เพียงอย่างเดียว' },
+
+  { code:'S4', color:PALETTE.other, name:'การปรับพฤติกรรมฝั่งกายภาพ', sub:'Physical Hedge Signal (ชั้นบริบท)',
+    cond:[ 'สังเกตการเพิ่มหรือลดของสถานะ Short ในกลุ่ม Producer (Δ Short of Producer)' ],
+    text:'ถ้า Producer ถอน Hedge หรือปิด Short ช่วงราคาขาลง อาจแปลว่าผู้ผลิตมองว่าราคาต่ำพอจะหยุดล็อกแล้ว — สัญญาณพื้นราคาที่เป็นไปได้ ในทางกลับกัน ถ้าราคาขึ้นแล้ว Producer "Hedge เพิ่ม" แสดงว่ากำลังทยอยล็อกกำไรฝั่ง Physical เป็นชั้นบริบทที่แสดงคู่ขนานกับ S1–S3 เสมอ ไม่ใช่สัญญาณเดี่ยว' },
+];
+
+function renderSignalGuide(){
+  document.getElementById('signalGuideBody').innerHTML = SIGNAL_GUIDE.map(s => `
+    <div class="rounded-lg border border-rule p-3.5">
+      <div class="flex items-baseline gap-2">
+        <span class="num rounded px-1.5 py-0.5 text-sm font-bold"
+              style="background:${s.color}22;color:${s.color}">${s.code}</span>
+        <p class="text-sm font-semibold">${s.name}</p>
+        <p class="text-[11px] text-muted">${s.sub}</p>
+      </div>
+      <ul class="mt-2 space-y-1 text-xs">
+        ${s.cond.map(c => `<li class="flex gap-1.5">
+          <span class="mt-0.5" style="color:${s.color}">●</span><span>${c}</span></li>`).join('')}
+      </ul>
+      <p class="mt-2 text-xs leading-relaxed text-muted">${s.text}</p>
+    </div>`).join('');
+}
+
+const guideBackdrop = document.getElementById('signalGuideBackdrop');
+const guideOpenBtn = document.getElementById('openSignalGuide');
+let guideLastFocus = null;
+
+function openSignalGuide(){
+  guideLastFocus = document.activeElement;
+  renderSignalGuide();
+  guideBackdrop.classList.remove('hidden');
+  guideBackdrop.classList.add('flex');
+  document.getElementById('closeSignalGuide').focus();
+}
+function closeSignalGuideModal(){
+  guideBackdrop.classList.add('hidden');
+  guideBackdrop.classList.remove('flex');
+  if (guideLastFocus) guideLastFocus.focus();
+}
+guideOpenBtn.addEventListener('click', openSignalGuide);
+document.getElementById('closeSignalGuide').addEventListener('click', closeSignalGuideModal);
+guideBackdrop.addEventListener('click', e => { if (e.target === guideBackdrop) closeSignalGuideModal(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !guideBackdrop.classList.contains('hidden')) closeSignalGuideModal();
+});
+
+// ══ ทดสอบเชื่อมต่อ ════════════════════════════════════════════════
+document.getElementById('testConnBtn').addEventListener('click', async () => {
+  const dot = document.getElementById('connDot'), txt = document.getElementById('connText');
+  txt.textContent = 'กำลังทดสอบ...';
+  dot.className = 'h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse';
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/health`);
+    if (!res.ok) throw new Error(res.status);
+    const j = await res.json();
+    dot.className = 'h-1.5 w-1.5 rounded-full bg-emerald-400';
+    txt.textContent = j.latest_report_date ? `เชื่อมต่อสำเร็จ · ${j.latest_report_date}` : 'เชื่อมต่อสำเร็จ';
+  } catch { dot.className = 'h-1.5 w-1.5 rounded-full bg-bear'; txt.textContent = 'เชื่อมต่อไม่สำเร็จ'; }
+});
+
+// ══ โหลดข้อมูล ════════════════════════════════════════════════════
+let bannerTimer = null;
+function setBanner(kind, msg){
+  const el = document.getElementById('dataMode');
+  const style = kind === 'live'
+    ? 'background:rgba(15,184,176,.12);color:#0A8B85'
+    : kind === 'warn' ? 'background:rgba(245,158,11,.14);color:#92600A'
+    : 'background:rgba(92,107,122,.12);color:#5C6B7A';
+  el.setAttribute('style', style + ';transition:opacity .5s ease;opacity:1');
+  el.classList.remove('hidden');
+  el.innerHTML = msg;
+
+  // ซ่อนแบนเนอร์อัตโนมัติหลัง 30 วินาที เพื่อไม่ให้ค้างบังพื้นที่หน้าจอถาวร
+  if (bannerTimer) clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => el.classList.add('hidden'), 500);
+  }, 30000);
+}
+
+async function loadCot(){
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/cot/series?weeks=520`);
+    if (!res.ok) throw new Error(res.status);
+    const j = await res.json();
+    if (!j.series || !j.series.length) throw new Error('empty');
+    return { rows: j.series.map(s => ({
+      date: String(s.report_date).slice(0,10),
+      oi:+s.open_interest, pdL:+s.prod_long, pdS:+s.prod_short,
+      swL:+s.swap_long, swS:+s.swap_short, mmL:+s.mm_long, mmS:+s.mm_short,
+      otL:+s.other_long, otS:+s.other_short,
+    })), live:true };
+  } catch { return { rows: embedToRows(), live:false }; }
+}
+
+async function loadPrices(){
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/prices/daily?years=10`);
+    if (!res.ok) throw new Error(res.status);
+    const j = await res.json();
+    return (j.series||[]).map(p => ({ d:String(p.trade_date).slice(0,10), px:+p.close_px }));
+  } catch { return []; }
+}
+
+/**
+ * ดึงสัญญาณที่ backend คำนวณไว้ — ใช้เป็นแหล่งความจริง
+ * การคำนวณฝั่ง client เป็นเพียงตัวสำรองเมื่อ API ใช้ไม่ได้ ถ้าปล่อยให้ทั้งสองฝั่ง
+ * คำนวณแยกกัน ค่าที่แสดงอาจไม่ตรงกับ backend เมื่อ threshold ถูกปรับในตาราง signal_rule
+ */
+async function loadSignals(){
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/signals?limit=520`);
+    if (!res.ok) throw new Error(res.status);
+    const j = await res.json();
+    const map = {};
+    (Array.isArray(j) ? j : []).forEach(s => {
+      let rationale = s.rationale;
+      if (typeof rationale === 'string') { try { rationale = JSON.parse(rationale); } catch { rationale = null; } }
+      const items = rationale && Array.isArray(rationale.items) ? rationale.items : null;
+      map[String(s.report_date).slice(0,10)] = {
+        sig: s.signal_code, dir: s.direction,
+        bias: +s.bias_score, conf: +s.confidence,
+        zone: s.price_zone || 'MID', state: s.price_state || 'FLAT',
+        px: s.price_ref != null ? +s.price_ref : null,
+        reasons: items ? items.map(it => [!!it.ok, it.text]) : null,
+      };
+    });
+    return map;
+  } catch { return null; }
+}
+
+async function loadOptionSummary(){
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/options/analysis`);
+    if (!res.ok) throw new Error(res.status);
+    return await res.json();
+  } catch { return null; }
+}
+
+/** ทับค่าที่คำนวณฝั่ง client ด้วยค่าจาก backend ตามวันที่ที่ตรงกัน */
+function applyBackendSignals(rows, sigMap){
+  let hit = 0;
+  rows.forEach(r => {
+    const s = sigMap[r.date];
+    if (!s) return;
+    hit++;
+    r.sig = s.sig; r.dir = s.dir; r.bias = s.bias; r.conf = s.conf;
+    r.zone = s.zone; r.state = s.state;
+    r.fromBackend = true;
+    if (s.px != null) r.px = s.px;
+    if (s.reasons) r.reasons = s.reasons;
+  });
+  return hit;
+}
+
+/**
+ * เลือกสัปดาห์ที่จะแสดงบนการ์ด KPI
+ * COT อาจมาถึงสัปดาห์ใหม่กว่าที่ backend ประเมินสัญญาณไว้ (เช่น COT ถึง 25 ส.ค.
+ * แต่ backend คำนวณถึง 18 ส.ค.) ถ้าแสดงแถวล่าสุดเฉย ๆ การ์ดจะว่างทั้งที่มีสัญญาณอยู่
+ * จึงยึดสัปดาห์ล่าสุดที่ backend ประเมินแล้วเป็นหลัก
+ */
+function pickHeadlineWeek(rows){
+  for (let i = rows.length - 1; i >= 0; i--) if (rows[i].fromBackend) return rows[i];
+  for (let i = rows.length - 1; i >= 0; i--) if (rows[i].px != null) return rows[i];
+  return rows.at(-1);
+}
+
+async function boot(){
+  const [cot, daily, sigMap, optSummary, fcData] = await Promise.all(
+    [loadCot(), loadPrices(), loadSignals(), loadOptionSummary(), loadForecast(10)]);
+  DAILY = daily;
+
+  COT = deriveCot(cot.rows);
+  const weeklyPx = snapWeekly(DAILY, COT.map(r=>r.date));
+  COT = attachPriceAndSignal(COT, weeklyPx);
+
+  // สัญญาณจาก backend มีสิทธิ์เหนือกว่าค่าที่คำนวณฝั่ง client เสมอ
+  const sigHits = sigMap ? applyBackendSignals(COT, sigMap) : 0;
+
+  const parts = [];
+  parts.push(cot.live ? `COT ${COT.length} สัปดาห์ (backend)`
+                       : `COT ${COT.length} สัปดาห์ (ข้อมูลฝังจาก CFTC)`);
+  parts.push(DAILY.length ? `ราคา ${DAILY.length} วัน` : 'ไม่มีข้อมูลราคา');
+  parts.push(sigHits ? `สัญญาณ ${sigHits} สัปดาห์ (backend)` : 'สัญญาณคำนวณในหน้าเว็บ');
+
+  if (cot.live && DAILY.length && sigHits){
+    setBanner('live', `● เชื่อมต่อ backend สำเร็จ — ${parts.join(' · ')}`);
+  } else if (!cot.live && !DAILY.length && !sigHits){
+    setBanner('warn', `● เชื่อมต่อ backend ไม่ได้ — กำลังแสดง <strong>ข้อมูล COT จริงที่ฝังไว้</strong>
+      (${COT.length} สัปดาห์ จาก CFTC) แต่ยังไม่มีราคาและสัญญาณ
+      <br><span class="text-[11px]">เปิด backend ด้วย <code>uvicorn app.main:app --reload</code> แล้วรีเฟรชหน้านี้</span>`);
+  } else {
+    setBanner('warn', `● ${parts.join(' · ')}`);
+  }
+
+  const headline = pickHeadlineWeek(COT);
+  renderKPI(headline);
+  if (headline !== COT.at(-1)){
+    document.getElementById('signalCtx').insertAdjacentHTML('afterend',
+      `<p class="mt-1 rounded bg-paper px-2 py-1 text-[11px] text-muted">
+         COT มีข้อมูลถึง ${fmtD(COT.at(-1).date)} แล้ว แต่ backend ประเมินสัญญาณถึง
+         ${fmtD(headline.date)} — รัน <code>run_ingest.py</code> เพื่ออัปเดตสัญญาณ</p>`);
+  }
+  renderStrip(COT);
+  renderGroupCards();
+  renderGroupTable();
+  renderHistory();
+  renderGoldOption(optSummary);
+  renderForecast(fcData);
+
+  const py = wireRange('.pxBtn', 'y', 10, renderPrice);
+  const ow = wireRange('.oiBtn', 'w', 52, renderOI);
+  const gw = wireRange('.grpBtn','w', 52, renderGroupChart);
+  renderPrice(py); renderOI(ow); renderGroupChart(gw);
+
+  // ปุ่มเลือกจำนวนวันพยากรณ์ — ต้องเรียก API ใหม่ทุกครั้ง (async) ต่างจากปุ่มอื่น
+  const fcBtns = Array.from(document.querySelectorAll('.fcBtn'));
+  const paintFc = (active) => fcBtns.forEach(b => {
+    const on = b === active;
+    b.className = on
+      ? 'fcBtn num rounded bg-ink px-2.5 py-1 text-xs text-paper ring-1 ring-ink'
+      : 'fcBtn num rounded px-2.5 py-1 text-xs ring-1 ring-rule';
+  });
+  fcBtns.forEach(b => b.addEventListener('click', async () => {
+    paintFc(b);
+    renderForecast(await loadForecast(+b.dataset.d));
+  }));
+  paintFc(fcBtns.find(b => +b.dataset.d === 10) || fcBtns[0]);
+}
+
+boot();
+</script>
+</body>
+</html>
