@@ -150,6 +150,130 @@ def ingest_cot(contract_id: int = 1, weeks_back: int = 260) -> int:
 
 
 # ---------------------------------------------------------------------
+# 1b. ดึง COT จากไฟล์ Excel (ทางเลือกสำรองเมื่อ CFTC Socrata API ล่ม/โดน rate-limit)
+#
+#     ใช้ได้กับไฟล์ที่ดาวน์โหลดตรงจาก CFTC.gov (Disaggregated Futures-Only
+#     "Historical Compressed" / Excel export ของแต่ละปี หรือไฟล์รวมหลายปี) —
+#     คอลัมน์เป็นชื่อแบบ CFTC ดั้งเดิม (เช่น 'Open_Interest_All',
+#     'M_Money_Positions_Long_ALL') ต่างจากชื่อฟิลด์ JSON ของ Socrata API
+#     ที่ fetch_cot() ใช้ จึงต้องมี alias mapping แยกต่างหาก
+# ---------------------------------------------------------------------
+XLSX_COL_ALIASES: dict[str, list[str]] = {
+    "report_date":   ["report_date_as_mm_dd_yyyy", "report_date_as_yyyy_mm_dd", "report_date"],
+    "market_name":   ["market_and_exchange_names", "market_and_exchange_name"],
+    "contract_code": ["cftc_contract_market_code"],
+    "open_interest": ["open_interest_all", "open_interest"],
+    "prod_long":     ["prod_merc_positions_long_all", "prod_merc_positions_long"],
+    "prod_short":    ["prod_merc_positions_short_all", "prod_merc_positions_short"],
+    "swap_long":     ["swap_positions_long_all", "swap__positions_long_all"],
+    "swap_short":    ["swap__positions_short_all", "swap_positions_short_all"],
+    "swap_spread":   ["swap__positions_spread_all", "swap_positions_spread_all"],
+    "mm_long":       ["m_money_positions_long_all"],
+    "mm_short":      ["m_money_positions_short_all"],
+    "mm_spread":     ["m_money_positions_spread_all", "m_money_positions_spread"],
+    "other_long":    ["other_rept_positions_long_all", "other_rept_positions_long"],
+    "other_short":   ["other_rept_positions_short_all", "other_rept_positions_short"],
+    "other_spread":  ["other_rept_positions_spread_all", "other_rept_positions_spread_othr",
+                       "other_rept_positions_spread"],
+    "nonrept_long":  ["nonrept_positions_long_all"],
+    "nonrept_short": ["nonrept_positions_short_all"],
+}
+
+
+def _resolve_xlsx_columns(columns: list[str]) -> dict[str, str]:
+    """
+    จับคู่ชื่อคอลัมน์จริงในไฟล์ (case-insensitive) กับชื่อฟิลด์ภายในระบบ
+    ถ้าหาคอลัมน์ที่จำเป็นไม่เจอเลย ให้ฟ้อง error พร้อมรายชื่อคอลัมน์จริงทั้งหมด
+    เพื่อให้แก้ XLSX_COL_ALIASES ได้ถูกจุด แทนที่จะปล่อยให้ข้อมูลหายไปแบบเงียบ ๆ
+    """
+    lower_map = {c.strip().lower(): c for c in columns}
+    resolved: dict[str, str] = {}
+    missing: list[str] = []
+    for field, aliases in XLSX_COL_ALIASES.items():
+        found = next((lower_map[a] for a in aliases if a in lower_map), None)
+        if found is None:
+            missing.append(field)
+        else:
+            resolved[field] = found
+
+    if missing:
+        raise RuntimeError(
+            "ไฟล์ Excel มีคอลัมน์ไม่ตรงกับที่ระบบคาดไว้ ระบบไม่ ingest ต่อเพื่อกันข้อมูลผิด\n"
+            f"ฟิลด์ที่หาไม่เจอ: {', '.join(missing)}\n"
+            f"คอลัมน์จริงในไฟล์ ({len(columns)} คอลัมน์):\n"
+            f"{', '.join(sorted(columns))}\n"
+            "→ คัดลอกรายการคอลัมน์จริงด้านบนไปแก้ไข XLSX_COL_ALIASES ใน etl.py ให้ตรง"
+        )
+    return resolved
+
+
+def read_cot_xlsx(path: str, market_filter: str = "GOLD",
+                   cftc_code: str = GOLD_CFTC_CODE, sheet_name=0) -> pd.DataFrame:
+    """
+    อ่านไฟล์ Excel รูปแบบ CFTC Disaggregated Futures-Only แล้วคืน DataFrame
+    ที่มีคอลัมน์ตรงกับ cot_raw (เหมือนผลลัพธ์ของ fetch_cot())
+
+    กรองแถวด้วย CFTC_Contract_Market_Code = cftc_code ก่อน ถ้าไม่พบคอลัมน์นี้
+    หรือไม่มีแถวตรง ให้ fallback มา filter ด้วยชื่อตลาด (market_filter, ค่าเริ่มต้น
+    'GOLD') เพื่อรองรับไฟล์ที่ column ชุดคอลัมน์ไม่ครบ
+    """
+    df_raw = pd.read_excel(path, sheet_name=sheet_name)
+    colmap = _resolve_xlsx_columns(list(df_raw.columns))
+
+    code_col = colmap.get("contract_code")
+    if code_col is not None:
+        code_norm = pd.to_numeric(df_raw[code_col], errors="coerce").fillna(-1).astype(int).astype(str)
+        mask = code_norm == str(int(cftc_code))
+        if not mask.any():
+            log.warning("ไม่พบแถวที่ CFTC_Contract_Market_Code=%s ในไฟล์ — filter ด้วยชื่อตลาดแทน", cftc_code)
+            mask = df_raw[colmap["market_name"]].astype(str).str.contains(market_filter, case=False, na=False)
+    else:
+        mask = df_raw[colmap["market_name"]].astype(str).str.contains(market_filter, case=False, na=False)
+
+    df_f = df_raw[mask]
+    if df_f.empty:
+        return pd.DataFrame()
+
+    out = pd.DataFrame({
+        "report_date": pd.to_datetime(df_f[colmap["report_date"]]).dt.date
+    })
+    numeric_fields = [f for f in XLSX_COL_ALIASES if f not in ("report_date", "market_name", "contract_code")]
+    for field in numeric_fields:
+        out[field] = pd.to_numeric(df_f[colmap[field]], errors="coerce").fillna(0).astype(int)
+
+    return out.sort_values("report_date").reset_index(drop=True)
+
+
+def ingest_cot_from_xlsx(path: str, contract_id: int = 1, market_filter: str = "GOLD",
+                          cftc_code: str = GOLD_CFTC_CODE, sheet_name=0) -> int:
+    """
+    นำเข้า COT จากไฟล์ Excel ที่ดาวน์โหลดด้วยมือจาก CFTC.gov — ใช้เป็นทางเลือกสำรอง
+    เมื่อ Socrata API (ingest_cot) ล่ม โดน rate-limit หรือเปลี่ยนชื่อฟิลด์กะทันหัน
+    รวมถึงใช้ backfill ข้อมูลย้อนหลังยาว ๆ ได้ในครั้งเดียว (ไฟล์ CFTC มักมีข้อมูล
+    หลายปีในชีตเดียว)
+
+    Idempotent เหมือน ingest_cot() — ใช้ตาราง UPSERT เดียวกัน รันซ้ำวันเดิม/ไฟล์เดิม
+    ได้ผลเท่าเดิม จึงเรียกซ้ำเพื่อเติมข้อมูลที่ขาด หรือแก้ตัวเลขที่ CFTC ปรับย้อนหลังได้
+    """
+    log.info("อ่านไฟล์ COT จาก Excel: %s (market=%s, contract=%s)", path, market_filter, cftc_code)
+    df = read_cot_xlsx(path, market_filter=market_filter, cftc_code=cftc_code, sheet_name=sheet_name)
+    if df.empty:
+        log.warning("ไม่พบแถวที่ตรงกับ market_filter='%s' ในไฟล์ %s", market_filter, path)
+        return 0
+
+    for p in validate_cot(df):
+        log.warning("ตรวจข้อมูล: %s", p)
+
+    records = df.to_dict("records")
+    with engine.begin() as conn:
+        for r in records:
+            conn.execute(UPSERT_RAW, {"cid": contract_id, **r})
+    log.info("บันทึก COT จาก Excel สำเร็จ %d สัปดาห์ (%s → %s)",
+              len(records), records[0]["report_date"], records[-1]["report_date"])
+    return len(records)
+
+
+# ---------------------------------------------------------------------
 # 2. ราคา — ใช้ Yahoo Finance chart API (ไม่ต้องขอ API key)
 #
 #    เดิมใช้ Stooq แต่ Stooq ปิดกั้นการเข้าถึงแบบอัตโนมัติผ่าน robots.txt
